@@ -33,8 +33,7 @@ State: plan, 6 Nov 2026. Phases 1–4 are done. Each phase ends with a push to
 
 - The app runs in a container, so the guide is written for Docker and does not depend on the host OS.
 - The values of your environment are entered by you at go-live, not needed for the build:
-  the app address and the Exchange relay go into Settings; the users' OU is a parameter at the
-  top of the PowerShell export script. The go-live table below lists them.
+  the app address and the Exchange relay go into Settings. The go-live table below lists them.
 - Your master data goes into the CSV files described in `examples/csv/README.md`
   (`users.csv`, `groups.csv`, `software.csv`); hardware models and vendors are entered under Lists.
 
@@ -97,7 +96,7 @@ real run.
 ## Phase 6: setup and operation
 
 Goal (design): one Docker container with one data folder, plus your mail
-server, your reverse proxy and the PowerShell export.
+server and your own CSV export scripts.
 
 ### What phase 6 delivers
 
@@ -122,10 +121,9 @@ server, your reverse proxy and the PowerShell export.
    - update steps: pull the new image, restart; the data stays.
 5. **Health page** (admin): last import, emails waiting or failed, last daily
    anchor, open tasks past their reminder, disk space of the data folder.
-6. **PowerShell export script** `scripts/export-ad.ps1`: writes `users.csv`
-   and `groups.csv` (UTF-8, semicolon) for the groups you name, run hourly by
-   Windows Task Scheduler under a read-only service account; plus the
-   instructions for `software.csv`.
+6. **CSV import documentation**: format and rules of `users.csv`, `groups.csv`
+   and `software.csv` for the owner's own export scripts (no script is written
+   here; the design says the files come from the owner's scripts).
 7. **End-to-end tests**: the test suite in Docker, see "Test suite in Docker" below.
 8. **Installation guide** in the README (German and English): first start,
    first sign-in, settings, CSV import, building the two example workflows
@@ -201,8 +199,8 @@ README keeps only the overview and links to the wiki.
 | 2 | Installation with Docker | IT admin | Server requirements, docker compose, key file outside the data folder, first start, first sign-in |
 | 3 | Network access (HTTP) | IT admin | Port and firewall inside the network, DNS name, why HTTP was chosen and its accepted risk, how to add HTTPS later if wanted |
 | 4 | Settings | admin | SMTP (relay without login), test email, company domains, app address, deadlines, holidays |
-| 5 | AD and software import | IT admin | PowerShell export script, Task Scheduler, CSV format, safety rules (10 %), import page |
-| 5a | AD groups and workflows | admin | Groups named after the team (HR, IT, Purchasing) as in the examples; adding a group to the export script; tying a group to a workflow in three places: *Who may start*, a *Confirm* step (first member confirms for all) and a *Notify* step; approvals always go to one person, never a group |
+| 5 | AD and software import | IT admin | CSV format your scripts must write (UTF-8, semicolon), import folder, safety rules (10 %), import page |
+| 5a | AD groups and workflows | admin | Groups named after the team (HR, IT, Purchasing) as in the examples; adding a group to your export; tying a group to a workflow in three places: *Who may start*, a *Confirm* step (first member confirms for all) and a *Notify* step; approvals always go to one person, never a group |
 | 6 | Lists | admin | Hardware models and vendors, deactivate instead of delete |
 | 7 | Building a workflow | admin | Form designer, sections (conditional, repeatable), steps, who, conditions, email texts, publish, versions |
 | 8 | Example: IT Assets Checklist | admin | Step-by-step rebuild of the example, as in the phase 3 acceptance test |
@@ -237,7 +235,7 @@ the app can be done by following one article.
 | Database | test data | fresh start; workflows come over by export/import (17d) |
 | Admin | admin/admin | new password, admin email set |
 | Accounts | test users | real HR/IT accounts, each with its AD email |
-| AD import | example CSV files | PowerShell script, service account, Task Scheduler, import folder |
+| AD import | example CSV files | your export scripts write the CSV files into the import folder |
 | Company domain, days off | example | your domain(s), extra days off |
 | Who may start | test groups | AD groups per workflow (HR, IT …) |
 | Test mode | may be on | off (no red "TEST MODE" bar) |
