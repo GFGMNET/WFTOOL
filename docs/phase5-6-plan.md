@@ -23,15 +23,19 @@ State: plan, 6 Nov 2026. Phases 1–4 are done. Each phase ends with a push to
 - Production email goes through an **Exchange relay** (receive connector that allows the app server's IP, no login).
 - AD groups are named as in the examples (HR, IT, Purchasing …).
 - Backups are done by the owner; the wiki says what to back up (data folder, key file separately).
+- **HTTP, not HTTPS** (owner decision, 6 Nov 2026), because the app is only reachable inside the
+  company network. Accepted risk: sign-in passwords, session cookies, email link codes and the
+  secret values shown to signers travel unencrypted inside the network. No certificate and no
+  reverse proxy are needed; the app is reached directly, e.g. `http://wftool.company.local:8080`.
+  HTTPS can be added later without changes to the app (reverse proxy plus `WFTOOL_SECURE_COOKIE=1`).
 
 **What I need from you:**
 - Phase 5: nothing.
 - Phase 6 (before it starts):
   1. Operating system of the machine that runs the app (Windows or Linux), see "Why the operating system matters" below.
-  2. Which reverse proxy you use (IIS, nginx, Traefik, Caddy or none yet), and the app's address, e.g. `https://wftool.company.local`.
-  3. Where the HTTPS certificate comes from (internal CA or other).
-  4. The OU of the users for the PowerShell export script (group names are known). Without it I use an example value.
-  5. Exchange relay: host name and port (usually 25), and whether it uses STARTTLS.
+  2. The app's address in your network, e.g. `http://wftool.company.local:8080` (DNS name or IP).
+  3. The OU of the users for the PowerShell export script (group names are known). Without it I use an example value.
+  4. Exchange relay: host name and port (usually 25), and whether it uses STARTTLS.
 
 ### Why the operating system matters
 
@@ -44,8 +48,7 @@ that machine decides how it is installed and started:
   (Docker Desktop needs a paid licence in larger companies), or the app runs
   without Docker as a Python Windows service. Folder paths like
   `D:\WFTOOL\data`, start at boot as a service.
-- It decides which reverse proxy example fits (IIS on Windows, nginx on Linux)
-  and how the import folder is shared with the PowerShell export script,
+- It decides how the import folder is shared with the PowerShell export script,
   which itself always runs on a Windows machine with AD access.
 
 The installation guide and the test command are written for the one OS you
@@ -123,8 +126,12 @@ server, your reverse proxy and the PowerShell export.
 2. **docker-compose.yml** with the app and, for testing, Mailpit
    (decision 5): every email the app sends is visible at
    `http://server:8025`. For production, Settings point to the Exchange relay instead.
-3. **Reverse proxy example** for the proxy you name (IIS, nginx or Traefik):
-   HTTPS, forwarded headers, secure cookies (`WFTOOL_SECURE_COOKIE=1`).
+3. **Direct HTTP access** (no reverse proxy, owner decision): the app listens on
+   its own port. Because no proxy sits in front, the app must **not** trust
+   `X-Forwarded-For` headers (today it does, for a proxy): otherwise a person
+   could fake the IP address recorded with a decision. New setting
+   `WFTOOL_BEHIND_PROXY` (default off) switches the proxy handling on only if
+   HTTPS with a proxy is added later. A test proves a faked header is ignored.
 4. **Backup support and update** (backups themselves are done by the owner):
    - `python -m wftool backup <file>`: consistent SQLite copy while the app runs, for your backup job to pick up;
    - wiki: what to back up (`/data` and the key file, separately) and how to test a restore;
@@ -208,7 +215,7 @@ README keeps only the overview and links to the wiki.
 | --- | --- | --- | --- |
 | 1 | Start here / Überblick | everyone | What WFTOOL does, roles (admin, starter, auditor), approvers without login, links to all articles |
 | 2 | Installation with Docker | IT admin | Server requirements, docker compose, key file outside the data folder, first start, first sign-in |
-| 3 | Reverse proxy and HTTPS | IT admin | Example for the proxy in use, forwarded headers, secure cookies |
+| 3 | Network access (HTTP) | IT admin | Port and firewall inside the network, DNS name, why HTTP was chosen and its accepted risk, how to add HTTPS later if wanted |
 | 4 | Settings | admin | SMTP (relay without login), test email, company domains, app address, deadlines, holidays |
 | 5 | AD and software import | IT admin | PowerShell export script, Task Scheduler, CSV format, safety rules (10 %), import page |
 | 5a | AD groups and workflows | admin | Groups named after the team (HR, IT, Purchasing) as in the examples; adding a group to the export script; tying a group to a workflow in three places: *Who may start*, a *Confirm* step (first member confirms for all) and a *Notify* step; approvals always go to one person, never a group |
@@ -227,7 +234,6 @@ README keeps only the overview and links to the wiki.
 | 17 | Backup, restore and update | IT admin | What to back up (data folder, key file separately), backup command, restore test, update steps |
 | 17a | Key file and encryption | IT admin | Where the key file lives, why it is kept apart from the data, what is lost without it (secret values, signatures, scans), never reuse the test key |
 | 17b | Exchange relay | IT admin | Receive connector allowing the app server's IP without login, sender address, SPF/DKIM so emails are not marked as spam, test email from Settings |
-| 17c | DNS name and certificate | IT admin | Internal name such as `wftool.company.local`, certificate from the internal CA trusted by all browsers, links work only inside the company network |
 | 17d | Moving workflows from test to production | admin | Export on the test system, import on production, check, publish; never copy the test database |
 | 17e | Health and daily checks | admin | Health page, warnings on the start page (failed emails, inactive people, rejected imports), outbox |
 | 18 | Data protection and retention | admin, data protection officer | What is recorded, works council note (§87(1) no. 6 BetrVG), retention setting, not legal advice |
@@ -240,9 +246,9 @@ the app can be done by following one article.
 
 | Area | Test | Production |
 | --- | --- | --- |
-| App address (Settings) | localhost | real HTTPS address; every email link is built from it |
+| App address (Settings) | localhost | real address in the network, e.g. `http://wftool.company.local:8080`; every email link is built from it |
 | Email (Settings) | Mailpit | Exchange relay: host, port, STARTTLS yes/no, no login, sender address |
-| HTTPS | none | reverse proxy with certificate from the internal CA, `WFTOOL_SECURE_COOKIE=1` |
+| HTTP | direct | direct on its port (no proxy, `WFTOOL_BEHIND_PROXY` off); links work only inside the company network |
 | Key file | test key | new key, outside the data folder, backed up separately |
 | Database | test data | fresh start; workflows come over by export/import (17d) |
 | Admin | admin/admin | new password, admin email set |
