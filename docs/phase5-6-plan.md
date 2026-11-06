@@ -110,11 +110,7 @@ server, your reverse proxy and the PowerShell export.
    and `groups.csv` (UTF-8, semicolon) for the groups you name, run hourly by
    Windows Task Scheduler under a read-only service account; plus the
    instructions for `software.csv`.
-7. **End-to-end tests**: the HR Onboard and IT Assets Checklist runs (start,
-   email links, signature, paper scan, rejection and resend, reminder,
-   expiry), against a running app with a local test mail server. The browser
-   checks done by hand in phases 3 and 4 become a script in the repository
-   (Playwright, optional: skipped where it is not installed).
+7. **End-to-end tests**: the test suite in Docker, see "Test suite in Docker" below.
 8. **Installation guide** in the README (German and English): first start,
    first sign-in, settings, CSV import, building the two example workflows
    or importing them, go-live checklist (including the works council and
@@ -135,6 +131,47 @@ tested there. Everything else is tested here as before.
 - The README guides a first installation without further help.
 
 ---
+
+## Test suite in Docker (built in phase 6)
+
+One command runs every test on any machine with Docker, with no Python setup:
+
+```
+docker compose -f docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from tests
+```
+
+(also as a short script: `scripts/test.sh` for Linux, `scripts/test.ps1` for Windows).
+
+| Container | Purpose |
+| --- | --- |
+| `app` | WFTOOL built from the same Dockerfile as production, with a fresh test data folder and test key file |
+| `mail` | Mailpit: receives every email; the tests read them over its API (links, attachments, HTML and text) |
+| `tests` | Python, pytest and Playwright with Chromium; runs the three parts below against `app` and `mail` |
+
+What runs, in order:
+
+1. **Unit and integration tests** (the existing pytest suite, 114+ tests):
+   engine, sections, builder, links, outbox, timers, pages.
+2. **End-to-end tests against the running container**, through real SMTP to
+   Mailpit and a real browser:
+   - build the IT Assets Checklist from an empty workflow in the builder and publish it;
+   - IT Assets: start with sections and two monitors, sign from the email link on a phone-size screen, PDF received by user and IT;
+   - IT Assets: rejection by the user, change and resend, paper signature with print PDF and scan upload;
+   - HR Onboard: manager approves with software, AutoCAD approver, HR group confirm (second HR link closed), IT copy;
+   - reminder and expiry with a test clock (the app accepts a time offset only in test mode);
+   - search, PDF report and CSV export (phase 5), tamper check reporting a manipulated entry;
+   - backup and restore into a second container, tamper check still ok.
+3. **Checks on the image**: runs as non-root, key file not inside `/data`,
+   security headers (CSP) present, no external requests from the pages.
+
+Results: exit code 0 or 1 for CI, a JUnit XML file and an HTML report with
+screenshots of failed steps in `./test-results/`.
+
+Safety: the test mode (test clock, test key) is switched on only by an
+environment variable that the production compose file never sets; the app
+shows a red "TEST MODE" bar when it is on.
+
+Done when the command above passes on a fresh machine with only Docker installed.
 
 ## Wiki articles (written in phase 6)
 
