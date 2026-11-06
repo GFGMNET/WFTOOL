@@ -1,3 +1,6 @@
+# App (also installed in the Docker image)
 cryptography>=42
 flask>=3.0
-pytest>=8
+reportlab>=4.0
+pypdf>=4.0
+waitress>=3.0

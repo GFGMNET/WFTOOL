@@ -4,8 +4,8 @@ version = "0.1.0"
 description = "Self-hosted workflow builder with approval by email"
 license = {text = "MIT"}
 requires-python = ">=3.11"
-dependencies = ["cryptography>=42", "flask>=3.0"]
+dependencies = ["cryptography>=42", "flask>=3.0", "reportlab>=4.0", "pypdf>=4.0", "waitress>=3.0"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests"]  # the end-to-end suite in e2e/ runs against a running app, see docs/testing.md
 pythonpath = [".", "tests"]

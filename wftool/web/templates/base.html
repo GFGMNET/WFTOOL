@@ -9,6 +9,7 @@
   {% block head %}{% endblock %}
 </head>
 <body>
+{% if config.TEST_MODE %}<div class="test-bar" role="status">TEST MODE – {{ t('test system, not for real requests') }}</div>{% endif %}
 <header class="topbar">
   <a class="brand" href="{{ url_for('home') }}">WFTOOL</a>
   <div class="topbar-right">
@@ -34,7 +35,7 @@
     {% if g.user.role in ('admin', 'auditor') %}<a href="{{ url_for('audit_page') }}" {% if request.endpoint == 'audit_page' %}aria-current="page"{% endif %}>{{ t('Audit') }}</a>{% endif %}
     {% if g.user.role == 'admin' %}
       <p class="sidenav-group">{{ t('Administration') }}</p>
-      {% for ep, label in [('admin_workflow', 'Workflows'), ('admin_tasks', 'Open tasks'), ('admin_start_groups', 'Who may start'), ('admin_lists', 'Lists'), ('admin_people', 'People and groups'), ('admin_imports', 'Imports'), ('admin_accounts', 'Accounts'), ('admin_outbox', 'Outbox'), ('admin_settings', 'Settings')] %}
+      {% for ep, label in [('admin_workflow', 'Workflows'), ('admin_tasks', 'Open tasks'), ('admin_start_groups', 'Who may start'), ('admin_lists', 'Lists'), ('admin_people', 'People and groups'), ('admin_imports', 'Imports'), ('admin_accounts', 'Accounts'), ('admin_outbox', 'Outbox'), ('admin_health', 'Health'), ('admin_settings', 'Settings')] %}
         <a href="{{ url_for('admin_workflows' if ep == 'admin_workflow' else ep) }}" {% if request.endpoint and request.endpoint.startswith(ep) %}aria-current="page"{% endif %}>{{ t(label) }}</a>
       {% endfor %}
     {% endif %}

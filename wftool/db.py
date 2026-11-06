@@ -307,6 +307,15 @@ class Database:
     def schema_version(self):
         return self.conn().execute("PRAGMA user_version").fetchone()[0]
 
+    def backup(self, target):
+        """A consistent copy of the database while the app keeps running (SQLite online backup)."""
+        import sqlite3
+        dest = sqlite3.connect(str(target))
+        try:
+            self.conn().backup(dest)
+        finally:
+            dest.close()
+
     def close(self):
         c = getattr(self._local, "conn", None)
         if c is not None:

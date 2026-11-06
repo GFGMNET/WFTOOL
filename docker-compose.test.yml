@@ -1,0 +1,60 @@
+# WFTOOL test setup. Never use it for real requests (TEST MODE).
+#
+# Run every test (fresh data each run):
+#   docker compose -f docker-compose.test.yml up --build --renew-anon-volumes --abort-on-container-exit --exit-code-from tests
+# Results: ./test-results/report.html (and junit-*.xml). Emails of the run: http://localhost:8025
+#
+# Test by hand (your own CSV files in ./test-data/import, data kept in ./test-data):
+#   docker compose -f docker-compose.test.yml --profile manual up --build -d manual mail
+#   app: http://localhost:8080 (admin / test-admin-password), emails: http://localhost:8025
+
+name: wftool-test
+
+services:
+  mail:
+    image: axllent/mailpit:latest      # test mail server: receives every email, shows it in the browser
+    ports:
+      - "8025:8025"
+
+  app:                                 # the app the automated tests run against
+    build: .
+    environment:
+      WFTOOL_TEST_MODE: "1"
+      WFTOOL_TEST_ADMIN_PASSWORD: "test-admin-password"
+    depends_on:
+      - mail
+
+  tests:                               # unit tests, then the end-to-end suite in a real browser
+    build:
+      context: .
+      dockerfile: e2e/Dockerfile
+    environment:
+      WFTOOL_E2E_URL: "http://app:8080"
+      MAILPIT_URL: "http://mail:8025"
+      SMTP_HOST: "mail"
+      SMTP_PORT: "1025"
+      WFTOOL_E2E_DATA: "/data"         # the app's data folder, shared below
+      WFTOOL_E2E_ADMIN_PASSWORD: "test-admin-password"
+      E2E_EXPECT_NONROOT: "1"
+    volumes_from:
+      - app                            # /data and /keys of the app (fresh with --renew-anon-volumes)
+    volumes:
+      - ./test-results:/suite/test-results
+    depends_on:
+      - app
+      - mail
+
+  manual:                              # hands-on testing; start with --profile manual
+    build: .
+    profiles: ["manual"]
+    environment:
+      WFTOOL_TEST_MODE: "1"
+      WFTOOL_TEST_ADMIN_PASSWORD: "test-admin-password"
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./test-data/data:/data
+      - ./test-data/keys:/keys
+      - ./test-data/import:/data/import
+    depends_on:
+      - mail

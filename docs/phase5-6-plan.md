@@ -1,6 +1,6 @@
 # Plan: phase 5 (audit and reports) and phase 6 (setup and operation)
 
-State: 6 Nov 2026. Phases 1–5 are done; phase 6 is next. Each phase ends with a push to
+State: 6 Nov 2026. Phases 1–6 are done; next is the owner's review (process step 3). Each phase ends with a push to
 `main` and a stop for review.
 
 ## Short version

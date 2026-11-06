@@ -415,3 +415,12 @@ dl.view { margin: 0; display: grid; gap: 0; }
 .audit-check, .audit-check > * { min-width: 0; }
 .audit-check .row-form { flex-wrap: wrap; }
 .audit-check .row-form button { white-space: normal; }
+
+/* ------------------------------------------------------------------ phase 6 */
+.test-bar { background: #B42318; color: #fff; text-align: center; font-weight: 700; padding: .35rem 1rem; letter-spacing: .04em; }
+.health { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr)); gap: 1rem; }
+.health-card { background: var(--sheet); border: 1px solid var(--rule); border-left: 4px solid var(--ok); border-radius: var(--radius); padding: .9rem 1.1rem; display: grid; gap: .3rem; }
+.health-card.warn { border-left-color: #B07A00; }
+.health-card.bad { border-left-color: var(--no); }
+.health-card h2 { margin: 0; font-size: 1rem; }
+.health-card .big { font-size: 1.5rem; font-weight: 700; }

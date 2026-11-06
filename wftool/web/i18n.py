@@ -697,6 +697,26 @@ DE = {
     "Retention stays off until it is agreed with the data protection officer. When on, it runs once a day for requests closed longer than the set months; decisions stay.":
         "Die Aufbewahrung bleibt aus, bis sie mit dem Datenschutzbeauftragten abgestimmt ist. Ist sie an, läuft sie einmal täglich für Anträge, die länger als die eingestellten Monate abgeschlossen sind; Entscheidungen bleiben erhalten.",
     "must be a time such as 06:00": "muss eine Uhrzeit wie 06:00 sein",
+
+    # phase 6
+    "test system, not for real requests": "Testsystem, nicht für echte Anträge",
+    "Health": "Zustand",
+    "A quick daily look: does the import run, are emails going out, is the fingerprint email sent, is there room for data?":
+        "Der tägliche Blick: Läuft der Import, gehen E-Mails raus, wird die Prüfwert-E-Mail gesendet, ist genug Platz für Daten?",
+    "Last import": "Letzter Import",
+    "No import yet. Put the CSV files into the import folder.": "Noch kein Import. Legen Sie die CSV-Dateien in den Import-Ordner.",
+    "Emails": "E-Mails",
+    "Oldest waiting since": "Älteste wartet seit",
+    "Daily fingerprint email": "Tägliche Prüfwert-E-Mail",
+    "Last sent": "Zuletzt gesendet",
+    "Not sent yet. It goes out daily at the time set in Settings, if an admin email is set.":
+        "Noch nicht gesendet. Sie geht täglich zur Uhrzeit aus den Einstellungen raus, wenn eine Admin-E-Mail eingetragen ist.",
+    "Open tasks after the reminder": "Offene Aufgaben nach der Erinnerung",
+    "Disk space of the data folder": "Speicherplatz des Datenordners",
+    "free": "frei",
+    "Database": "Datenbank",
+    "Test mode is on": "Testmodus ist an",
+    "Never use this setup for real requests.": "Diese Installation nie für echte Anträge verwenden.",
 }
 
 

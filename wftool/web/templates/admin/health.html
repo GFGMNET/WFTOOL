@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}{{ t('Health') }}{% endblock %}
+{% block content %}
+<h1>{{ t('Health') }}</h1>
+<p class="lead">{{ t('A quick daily look: does the import run, are emails going out, is the fingerprint email sent, is there room for data?') }}</p>
+<div class="health">
+  <section class="health-card {% if not imports %}warn{% elif imports|selectattr('status', 'equalto', 'rejected')|list %}bad{% endif %}">
+    <h2>{{ t('Last import') }}</h2>
+    {% for i in imports %}<div>{{ i.file_name or i.kind }}: <strong>{{ t(i.status) }}</strong> <span class="hint">{{ local_time(i.started_at) }}{% if i.message %} – {{ i.message }}{% endif %}</span></div>
+    {% else %}<div class="hint">{{ t('No import yet. Put the CSV files into the import folder.') }}</div>{% endfor %}
+    <a href="{{ url_for('admin_imports') }}">{{ t('Imports') }}</a>
+  </section>
+  <section class="health-card {% if counts.get('failed') %}bad{% elif counts.get('pending', 0) > 20 %}warn{% endif %}">
+    <h2>{{ t('Emails') }}</h2>
+    <div class="big">{{ counts.get('pending', 0) }} {{ t('pending') }} · {{ counts.get('failed', 0) }} {{ t('failed') }}</div>
+    {% if oldest %}<div class="hint">{{ t('Oldest waiting since') }} {{ local_time(oldest) }}</div>{% endif %}
+    <a href="{{ url_for('admin_outbox') }}">{{ t('Outbox') }}</a>
+  </section>
+  <section class="health-card {% if not anchor %}warn{% endif %}">
+    <h2>{{ t('Daily fingerprint email') }}</h2>
+    {% if anchor %}<div>{{ t('Last sent') }} <strong>{{ local_time(anchor.ts) }}</strong> → {{ anchor.data.to }}</div>
+    {% else %}<div class="hint">{{ t('Not sent yet. It goes out daily at the time set in Settings, if an admin email is set.') }}</div>{% endif %}
+    <a href="{{ url_for('audit_page') }}">{{ t('Audit') }}</a>
+  </section>
+  <section class="health-card {% if reminded %}warn{% endif %}">
+    <h2>{{ t('Open tasks after the reminder') }}</h2>
+    <div class="big">{{ reminded }}</div>
+    <a href="{{ url_for('admin_tasks') }}">{{ t('Open tasks') }}</a>
+  </section>
+  <section class="health-card {% if free_pct < 10 %}bad{% elif free_pct < 20 %}warn{% endif %}">
+    <h2>{{ t('Disk space of the data folder') }}</h2>
+    <div class="big">{{ '%.1f'|format(free_gb) }} GB {{ t('free') }} ({{ '%.0f'|format(free_pct) }} %)</div>
+    <div class="hint">{{ t('Database') }}: {{ '%.1f'|format(db_mb) }} MB</div>
+  </section>
+  {% if test_mode %}<section class="health-card bad"><h2>{{ t('Test mode is on') }}</h2><div>{{ t('Never use this setup for real requests.') }}</div></section>{% endif %}
+</div>
+{% endblock %}

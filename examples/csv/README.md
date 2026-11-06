@@ -1,7 +1,7 @@
 # CSV import format
 
 Put these files into the app's import folder (`data/import/`). The app checks
-the folder every hour and imports a file only when it changed.
+the folder every 5 minutes and imports a file only when it changed.
 
 All files: **UTF-8** (with or without BOM), **semicolon** as separator, one
 header row with exactly these column names (order does not matter, extra

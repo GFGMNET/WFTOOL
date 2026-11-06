@@ -15,7 +15,7 @@ Licence: MIT. Design: see the design document v2 (Workflow Builder).
 | 3. Builder | Form designer with sections, workflow builder, publish checks, export/import | **done** |
 | 4. Requests and email links | Request pages, single-use links, HTML emails, outbox, reminders, signatures | **done** |
 | 5. Audit and reports | Search, CSV, full PDF report, audit page, daily anchor email, retention | **done** |
-| 6. Setup and operation | Docker, backup, health page, AD export script, end-to-end tests, install guide | planned, see [docs/phase5-6-plan.md](docs/phase5-6-plan.md) |
+| 6. Test setup | Docker image, test suite with one command, CSV templates, test import folder, health page, backup command | **done, waiting for review** |
 
 ## Phase 1: what the engine does
 
@@ -74,6 +74,24 @@ approval and sign steps can use `reject`; paper signatures never expire.
 `{"field": "...", "op": "...", "value": ...}` with `equals`, `not_equals`,
 `contains`, `not_contains`, `is_set`, `is_empty`, `any_needs_approval`.
 A step whose condition is false is skipped and logged.
+
+## Phase 6: test setup
+
+How to test: [docs/testing.md](docs/testing.md). The go-live compose file and the wiki follow after the final approval
+([docs/phase5-6-plan.md](docs/phase5-6-plan.md), "Process from now to go-live").
+
+- **Docker image** (`Dockerfile`): app and background tasks in one process (waitress), runs as an
+  unprivileged user, data in `/data`, key file in `/keys` (separate volume).
+- **Test suite with one command** (`docker-compose.test.yml`): unit tests, then a full end-to-end run in a
+  real browser against a fresh app, with Mailpit as the test mail server. Report in `test-results/`.
+- **Hands-on testing**: the `manual` profile keeps its data in `test-data/`; your CSV files go into
+  `test-data/import/`. Templates: `templates/csv/`.
+- **Test mode** (`WFTOOL_TEST_MODE=1`, test setup only): red bar on every page, test clock and helpers
+  for the automated run. Never set in production.
+- **Proxy headers** are ignored unless `WFTOOL_BEHIND_PROXY=1`, so the recorded IP address cannot be faked.
+- **Backup command**: `python -m wftool backup <file>` (consistent copy while the app runs).
+- **Admin → Health**: last import, emails waiting or failed, daily fingerprint email, open tasks after the
+  reminder, free disk space.
 
 ## Phase 5: audit and reports
 
@@ -256,7 +274,7 @@ Admin → Lists: `laptop_models`, `docking_models`, `monitor_models`,
 
 ## Development
 
-Requires Python 3.11+ with `cryptography` and `Flask` (reportlab follows in phase 5).
+Requires Python 3.11+ and the packages in `requirements.txt` (tests: `requirements-test.txt`).
 
 ```
 pip install -r requirements.txt

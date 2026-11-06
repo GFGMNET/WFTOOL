@@ -1,0 +1,3 @@
+# Tests (unit tests and the end-to-end suite)
+pytest>=8
+playwright==1.49.1

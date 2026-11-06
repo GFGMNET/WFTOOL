@@ -547,7 +547,31 @@ def audit_page():
                            last_hash=audit.latest_hash(db))
 
 
+@admin_required
+def admin_health():
+    """Daily check for the admin: is everything running? (design: Operations)"""
+    import shutil
+    db = _db()
+    data_dir = current_app.config["DATA_DIR"]
+    imports = [dict(r) for r in db.all(
+        "SELECT i.* FROM imports i JOIN (SELECT kind, MAX(id) AS id FROM imports GROUP BY kind) m ON m.id = i.id"
+        " ORDER BY i.kind")]
+    counts = outbox.counts(db)
+    oldest = db.one("SELECT MIN(created_at) AS t FROM outbox WHERE status = 'pending'")["t"]
+    anchors = reports.anchors(db, 1)
+    reminded = db.one("SELECT COUNT(*) AS n FROM tasks t JOIN requests r ON r.id = t.request_id AND r.round = t.round"
+                      " WHERE t.status IN ('open', 'paper_pending') AND r.status = 'open'"
+                      " AND t.reminded_at IS NOT NULL")["n"]
+    usage = shutil.disk_usage(data_dir)
+    db_size = (data_dir / "wftool.db").stat().st_size if (data_dir / "wftool.db").exists() else 0
+    return render_template("admin/health.html", imports=imports, counts=counts, oldest=oldest,
+                           anchor=anchors[0] if anchors else None, reminded=reminded,
+                           free_gb=usage.free / 1024 ** 3, free_pct=100 * usage.free / usage.total,
+                           db_mb=db_size / 1024 ** 2, test_mode=current_app.config.get("TEST_MODE"))
+
+
 ROUTES = [
+    ("/admin/health", admin_health, ["GET"]),
     ("/requests.csv", request_csv, ["GET"]),
     ("/audit", audit_page, ["GET", "POST"]),
     ("/requests", request_list, ["GET"]),

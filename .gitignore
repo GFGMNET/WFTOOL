@@ -9,3 +9,7 @@ data/
 .venv/
 keys/
 session.key
+test-results/
+test-data/data/
+test-data/keys/
+test-data/import/*.csv
