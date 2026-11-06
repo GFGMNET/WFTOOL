@@ -1,0 +1,11 @@
+[project]
+name = "wftool"
+version = "0.1.0"
+description = "Self-hosted workflow builder with approval by email"
+license = {text = "MIT"}
+requires-python = ">=3.11"
+dependencies = ["cryptography>=42"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", "tests"]

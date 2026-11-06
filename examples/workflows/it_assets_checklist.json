@@ -1,0 +1,34 @@
+{
+  "name": "IT Assets Checklist",
+  "label": {"de": "IT-Ausstattung", "en": "IT Assets Checklist"},
+  "fields": [
+    {"id": "user", "type": "person", "label": {"de": "Benutzer", "en": "User"}, "required": true},
+    {"id": "pc_heading", "type": "heading", "label": {"de": "PC / Laptop", "en": "PC / laptop"}},
+    {"id": "pc_model", "type": "dropdown", "label": {"de": "Modell", "en": "Model"}, "list": "hardware_models"},
+    {"id": "pc_vendor", "type": "dropdown", "label": {"de": "Hersteller", "en": "Vendor"}, "list": "hardware_vendors"},
+    {"id": "pc_serial", "type": "text", "label": {"de": "Seriennummer", "en": "Serial number"}, "max_length": 64},
+    {"id": "mobile_heading", "type": "heading", "label": {"de": "Mobiltelefon", "en": "Mobile"}},
+    {"id": "imei", "type": "text", "label": {"de": "IMEI", "en": "IMEI"}, "max_length": 20},
+    {"id": "pin", "type": "secret", "label": {"de": "PIN", "en": "PIN"}},
+    {"id": "puk", "type": "secret", "label": {"de": "PUK", "en": "PUK"}},
+    {"id": "unlock_pin", "type": "secret", "label": {"de": "Entsperr-PIN", "en": "Unlock PIN"}},
+    {"id": "signature", "type": "signature", "label": {"de": "Unterschrift", "en": "Signature"}}
+  ],
+  "steps": [
+    {
+      "id": "user_signs",
+      "type": "sign",
+      "label": {"de": "Empfang bestätigen und unterschreiben", "en": "Confirm receipt and sign"},
+      "who": {"kind": "field", "field": "user"},
+      "fields": ["signature"],
+      "allow_paper": true
+    },
+    {
+      "id": "copy_to_user_and_it",
+      "type": "notify",
+      "label": {"de": "Unterschriebenes PDF an Benutzer und IT", "en": "Signed PDF to user and IT"},
+      "who": [{"kind": "field", "field": "user"}, {"kind": "group", "group": "IT"}],
+      "attach_pdf": true
+    }
+  ]
+}

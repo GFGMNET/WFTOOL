@@ -1,0 +1,48 @@
+{
+  "name": "HR Onboard",
+  "label": {"de": "HR Onboarding", "en": "HR Onboard"},
+  "fields": [
+    {"id": "employee", "type": "text", "label": {"de": "Neuer Mitarbeiter", "en": "New employee"}, "required": true},
+    {"id": "start_date", "type": "date", "label": {"de": "Eintrittsdatum", "en": "Start date"}, "required": true},
+    {"id": "department", "type": "text", "label": {"de": "Abteilung", "en": "Department"}},
+    {"id": "manager", "type": "person", "label": {"de": "Vorgesetzter", "en": "Manager"}, "required": true},
+    {"id": "software", "type": "multichoice", "label": {"de": "Software", "en": "Software"}, "list": "software"}
+  ],
+  "steps": [
+    {
+      "id": "manager_approval",
+      "type": "fill_approve",
+      "label": {"de": "Software wählen und genehmigen", "en": "Select software and approve"},
+      "who": {"kind": "field", "field": "manager"},
+      "fields": ["software"]
+    },
+    {
+      "id": "software_approval",
+      "type": "approve_per_item",
+      "label": {"de": "Freigabe der Software", "en": "Software approval"},
+      "items": "software",
+      "who": {"kind": "item_approver"},
+      "when": {"field": "software", "op": "any_needs_approval"}
+    },
+    {
+      "id": "copy_to_hr",
+      "type": "notify",
+      "label": {"de": "Kopie an HR", "en": "Copy to HR"},
+      "who": [{"kind": "group", "group": "HR"}],
+      "attach_pdf": true
+    },
+    {
+      "id": "forward_to_it",
+      "type": "confirm",
+      "label": {"de": "An IT weiterleiten", "en": "Forward to IT"},
+      "who": {"kind": "group", "group": "HR"}
+    },
+    {
+      "id": "copy_to_it",
+      "type": "notify",
+      "label": {"de": "Kopie an IT", "en": "Copy to IT"},
+      "who": [{"kind": "group", "group": "IT"}],
+      "attach_pdf": true
+    }
+  ]
+}
