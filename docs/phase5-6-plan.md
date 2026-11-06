@@ -106,9 +106,9 @@ server and your own CSV export scripts.
    - `/data` volume for the database, import folder and files;
    - the key file mounted separately (read-only), never inside `/data`;
    - database changes run automatically on start (migrations exist since phase 1).
-2. **docker-compose.yml** with the app and, for testing, Mailpit
-   (decision 5): every email the app sends is visible at
-   `http://server:8025`. For production, Settings point to the Exchange relay instead.
+2. **docker-compose.test.yml** (test only) with the app, Mailpit (decision 5:
+   every email the app sends is visible at `http://server:8025`) and the test
+   runner. The go-live compose file comes after the final approval (process step 6).
 3. **Direct HTTP access** (no reverse proxy, owner decision): the app listens on
    its own port. Because no proxy sits in front, the app must **not** trust
    `X-Forwarded-For` headers (today it does, for a proxy): otherwise a person
@@ -117,18 +117,16 @@ server and your own CSV export scripts.
    HTTPS with a proxy is added later. A test proves a faked header is ignored.
 4. **Backup support and update** (backups themselves are done by the owner):
    - `python -m wftool backup <file>`: consistent SQLite copy while the app runs, for your backup job to pick up;
-   - wiki: what to back up (`/data` and the key file, separately) and how to test a restore;
+   - what to back up and how to test a restore goes into the wiki (process step 6);
    - update steps: pull the new image, restart; the data stays.
 5. **Health page** (admin): last import, emails waiting or failed, last daily
    anchor, open tasks past their reminder, disk space of the data folder.
-6. **CSV import documentation**: format and rules of `users.csv`, `groups.csv`
-   and `software.csv` for the owner's own export scripts (no script is written
-   here; the design says the files come from the owner's scripts).
+6. **CSV templates and instruction** in `templates/csv/` (see process step 2), for
+   the owner's own export scripts (no script is written here; the design says
+   the files come from the owner's scripts).
 7. **End-to-end tests**: the test suite in Docker, see "Test suite in Docker" below.
-8. **Installation guide** in the README (German and English): first start,
-   first sign-in, settings, CSV import, building the two example workflows
-   or importing them, go-live checklist (including the works council and
-   data protection check from the design).
+8. The **installation guide and go-live checklist** are part of the wiki,
+   written after the final approval (process step 6).
 
 ### Limits of the build environment
 
@@ -139,10 +137,11 @@ tested there. Everything else is tested here as before.
 
 ### Done when
 
-- `docker compose up` starts the app; sign-in, a full HR Onboard run and the
-  emails in Mailpit work on a fresh server.
+- The test suite command passes on a fresh machine with only Docker installed:
+  sign-in, full HR Onboard and IT Assets runs, emails in Mailpit, CSV import
+  from the test import folder.
 - A backup can be restored into a new container and verifies (tamper check ok).
-- The README guides a first installation without further help.
+- The CSV templates and their short instruction are in `templates/csv/`.
 
 ---
 
