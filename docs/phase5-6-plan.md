@@ -5,16 +5,16 @@ State: plan, 6 Nov 2026. Phases 1–4 are done. Each phase ends with a push to
 
 ## Short version
 
-**To decide** (recommendation in the last column; answer only where you want something else; decided rows are marked):
+**Decisions** (all decided by the owner on 6 Nov 2026):
 
 | # | Phase | Question | Recommendation |
 | --- | --- | --- | --- |
-| 1 | 5 | Daily tamper-check email to the admin: at what time? | 06:00 |
+| 1 | 5 | Daily tamper-check email to the admin: at what time? | **Decided 6 Nov 2026: 06:00** |
 | 2 | 5 | May auditors see secret values (PIN, PUK)? | **Decided 6 Nov 2026: yes, always visible to auditors** |
-| 3 | 5 | CSV export format | Semicolon, UTF-8 for Excel |
-| 4 | 5 | Retention (design: built in, off until agreed with the data protection officer): what should it do when switched on? | Remove IP address and browser from requests closed more than N months ago; decisions and PDFs stay |
-| 5 | 6 | Mail server for testing | A test mail server in the Docker setup whose emails you can read in the browser (Mailpit); your Postfix only for real sending |
-| 6 | 6 | Production web server inside the container | waitress (one process, as the design requires) |
+| 3 | 5 | CSV export format | **Decided 6 Nov 2026: Semicolon, UTF-8 for Excel** |
+| 4 | 5 | Retention (design: built in, off until agreed with the data protection officer): what should it do when switched on? | **Decided 6 Nov 2026: Remove IP address and browser from requests closed more than N months ago; decisions and PDFs stay** |
+| 5 | 6 | Mail server for testing | **Decided 6 Nov 2026: A test mail server in the Docker setup whose emails you can read in the browser (Mailpit); your Postfix only for real sending** |
+| 6 | 6 | Production web server inside the container | **Decided 6 Nov 2026: waitress (one process, as the design requires)** |
 
 **What I will do:** phase 5, review stop, phase 6, review stop. Details below.
 
@@ -135,6 +135,37 @@ tested there. Everything else is tested here as before.
 - The README guides a first installation without further help.
 
 ---
+
+## Wiki articles (written in phase 6)
+
+The GitHub wiki of GFGMNET/WFTOOL, German first with English versions. Each
+article is short, task-based, with screenshots from `docs/screenshots/`. The
+README keeps only the overview and links to the wiki.
+
+| # | Article | For | Content |
+| --- | --- | --- | --- |
+| 1 | Start here / Überblick | everyone | What WFTOOL does, roles (admin, starter, auditor), approvers without login, links to all articles |
+| 2 | Installation with Docker | IT admin | Server requirements, docker compose, key file outside the data folder, first start, first sign-in |
+| 3 | Reverse proxy and HTTPS | IT admin | Example for the proxy in use, forwarded headers, secure cookies |
+| 4 | Settings | admin | SMTP (relay without login), test email, company domains, app address, deadlines, holidays |
+| 5 | AD and software import | IT admin | PowerShell export script, Task Scheduler, CSV format, safety rules (10 %), import page |
+| 6 | Lists | admin | Hardware models and vendors, deactivate instead of delete |
+| 7 | Building a workflow | admin | Form designer, sections (conditional, repeatable), steps, who, conditions, email texts, publish, versions |
+| 8 | Example: IT Assets Checklist | admin | Step-by-step rebuild of the example, as in the phase 3 acceptance test |
+| 9 | Example: HR Onboard | admin | Fields, manager approval, software approval per item, HR confirm, IT copy |
+| 10 | Who may start | admin | Groups per workflow, accounts with email |
+| 11 | Starting and following a request | starter | Start form, request page, resend, cancel, change and resend after rejection |
+| 12 | Approving and signing from an email | approvers, signers | What the email looks like, the link page, reject with reason, signature pad, paper |
+| 13 | Paper signature | starter | Print, sign, scan, upload with the request number |
+| 14 | Search, PDF and CSV | auditor, admin | Search filters, PDF report, CSV export, secret values (auditors see them; viewing is logged) |
+| 15 | Audit and tamper check | auditor, admin | Event log, chain check, daily anchor email, what to do if the check fails |
+| 16 | Reminders, expiry and reassigning | admin | Timers, open tasks page, inactive people, outbox |
+| 17 | Backup, restore and update | IT admin | Backup command, key file backup kept separately, restore test, update steps |
+| 18 | Data protection and retention | admin, data protection officer | What is recorded, works council note (§87(1) no. 6 BetrVG), retention setting, not legal advice |
+| 19 | Troubleshooting / FAQ | everyone | Emails not arriving, link no longer works, import rejected, locked account, forgotten admin password |
+
+Done when every article exists in German and English and each admin task in
+the app can be done by following one article.
 
 ## Order and size (estimate from the design, not a measurement)
 
