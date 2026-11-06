@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}{{ lst.label }}{% endblock %}
+{% block content %}
+<p><a href="{{ url_for('admin_lists') }}">{{ t('Back to lists') }}</a></p>
+<h1>{{ lst.label }}</h1>
+{% set editable = lst.source == 'app' %}
+<p class="lead">{% if editable %}{{ t('Deactivated entries are hidden in new forms but stay in old requests.') }}{% else %}{{ t('This list comes from the CSV import. Change software.csv to change it.') }}{% endif %}</p>
+
+{% if items %}
+<table class="data">
+  <thead><tr><th>{{ t('Name') }}</th>{% if not editable %}<th>{{ t('Needs approval') }}</th><th>{{ t('Approver') }}</th>{% endif %}<th>{{ t('Status') }}</th>{% if editable %}<th></th>{% endif %}</tr></thead>
+  <tbody>{% for i in items %}
+    <tr {% if not i.active %}class="row-muted"{% endif %}>
+      <td>{% if editable %}
+        <form method="post" class="row-form">
+          <input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="item_id" value="{{ i.id }}"><input type="hidden" name="action" value="rename">
+          <input name="label" value="{{ i.label }}" required aria-label="{{ t('Name') }}"><button>{{ t('Rename') }}</button>
+        </form>{% else %}{{ i.label }}{% endif %}</td>
+      {% if not editable %}<td>{{ t('yes') if i.needs_approval else t('no') }}</td><td>{{ i.approver_email or '' }}</td>{% endif %}
+      <td>{% if i.active %}<span class="stamp">{{ t('Active') }}</span>{% else %}<span class="stamp stamp-muted">{{ t('Inactive') }}</span>{% endif %}</td>
+      {% if editable %}<td class="actions">
+        {% set is_first, is_last = loop.first, loop.last %}
+        {% for action, label in [('up', 'Move up'), ('down', 'Move down'), ('deactivate' if i.active else 'activate', 'Deactivate' if i.active else 'Activate')] if not (action == 'up' and is_first) and not (action == 'down' and is_last) %}
+        <form method="post" class="inline"><input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="item_id" value="{{ i.id }}"><input type="hidden" name="action" value="{{ action }}"><button class="small">{{ t(label) }}</button></form>
+        {% endfor %}
+      </td>{% endif %}
+    </tr>
+  {% endfor %}</tbody>
+</table>
+{% else %}<p class="empty">{{ t('No entries yet.') }}</p>{% endif %}
+
+{% if editable %}
+<form method="post" class="row-form add">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="action" value="add">
+  <input name="label" required aria-label="{{ t('Add entry') }}" placeholder="Latitude 5450">
+  <button class="primary">{{ t('Add entry') }}</button>
+</form>
+{% endif %}
+{% endblock %}

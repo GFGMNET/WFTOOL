@@ -7,7 +7,7 @@ versions").
 
 import json
 
-from . import audit, clock
+from . import audit, clock, masterdata
 from .crypto import canonical_json, fingerprint
 from .definitions import publish_problems, validate
 from .errors import DefinitionError, NotFound, PublishError
@@ -119,3 +119,46 @@ def import_workflow(db, text, *, by, publish_now=False):
     if publish_now:
         return publish(db, definition["name"], by=by)
     return None
+
+
+# --- who may start ------------------------------------------------------
+
+def start_groups(db, name):
+    row = db.one("SELECT start_groups FROM workflows WHERE name = ?", (name,))
+    if not row:
+        raise NotFound(f"Workflow '{name}' not found.")
+    return json.loads(row["start_groups"] or "[]")
+
+
+def set_start_groups(db, name, groups, *, by):
+    """Set the AD groups whose members may start this workflow."""
+    get_workflow(db, name)
+    groups = sorted({g.strip() for g in groups if g and g.strip()}, key=str.lower)
+    unknown = [g for g in groups if not masterdata.get_group(db, g)]
+    if unknown:
+        raise DefinitionError("Unknown group(s).", details=[f"group '{g}' does not exist" for g in unknown])
+    with db.tx() as c:
+        c.execute("UPDATE workflows SET start_groups = ?, updated_at = ? WHERE name = ?",
+                  (json.dumps(groups), clock.now_iso(), name))
+        audit.record(db, "workflow.start_groups_changed", actor=by, data={"workflow": name, "groups": groups})
+    return groups
+
+
+def can_start(db, account, name):
+    """Admins may start every published workflow; starters if they are in one of its groups."""
+    if not account or not account.get("active"):
+        return False
+    if account["role"] == "admin":
+        return True
+    if account["role"] != "starter" or not account.get("email"):
+        return False
+    email = account["email"].lower()
+    if not masterdata.get_user(db, email):
+        return False
+    return any(email in masterdata.group_members(db, g) for g in start_groups(db, name))
+
+
+def startable_workflows(db, account):
+    rows = db.all("SELECT DISTINCT w.name FROM workflows w JOIN workflow_versions v ON v.workflow_id = w.id"
+                  " WHERE w.active = 1 ORDER BY w.name")
+    return [r["name"] for r in rows if can_start(db, account, r["name"])]

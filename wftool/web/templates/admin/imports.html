@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}{{ t('Imports') }}{% endblock %}
+{% block content %}
+<h1>{{ t('Imports') }}</h1>
+<p class="lead">{{ t('Import folder') }}: <code>{{ folder }}</code><br>{{ t('The folder is checked every 5 minutes; files that did not change are skipped.') }}</p>
+<form method="post" class="inline">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <button class="primary">{{ t('Run import now') }}</button>
+</form>
+
+{% if history %}
+<table class="data">
+  <thead><tr><th>{{ t('Time') }}</th><th>{{ t('File') }}</th><th>{{ t('Status') }}</th><th class="num">{{ t('Added') }}</th><th class="num">{{ t('Changed') }}</th><th class="num">{{ t('Deactivated') }}</th><th class="num">{{ t('Skipped rows') }}</th><th>{{ t('Message') }}</th></tr></thead>
+  <tbody>{% for r in history %}
+    <tr><td>{{ r.started_at[:16].replace('T', ' ') }}</td><td>{{ r.file_name }}</td>
+      <td><span class="stamp {% if r.status == 'rejected' %}stamp-red{% endif %}">{{ t(r.status) }}</span></td>
+      <td class="num">{{ r.added }}</td><td class="num">{{ r.changed }}</td><td class="num">{{ r.deactivated }}</td><td class="num">{{ r.rejected_rows }}</td>
+      <td>{{ r.message or '' }}</td></tr>
+  {% endfor %}</tbody>
+</table>
+{% else %}<p class="empty">{{ t('No imports yet. Put users.csv, groups.csv or software.csv into the import folder.') }}</p>{% endif %}
+{% endblock %}

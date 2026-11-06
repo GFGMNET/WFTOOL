@@ -123,6 +123,10 @@ DEFAULTS = {
     "default_email_language": "de",
     "admin_email": "",
     "company_domains": "",
+    "smtp_port": "25",
+    "smtp_security": "none",
+    "smtp_tls_verify": "yes",
+    "import_max_deactivate_percent": "10",
 }
 
 

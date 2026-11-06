@@ -197,6 +197,16 @@ MIGRATIONS = [
         message       TEXT
     );
     """,
+    # 2: login rules, start permissions per workflow, import fingerprints.
+    """
+    ALTER TABLE accounts ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE accounts ADD COLUMN failed_attempts INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE accounts ADD COLUMN locked_until TEXT;
+    ALTER TABLE accounts ADD COLUMN last_login_at TEXT;
+    ALTER TABLE accounts ADD COLUMN password_changed_at TEXT;
+    ALTER TABLE workflows ADD COLUMN start_groups TEXT NOT NULL DEFAULT '[]';
+    ALTER TABLE imports ADD COLUMN fingerprint TEXT;
+    """,
 ]
 
 

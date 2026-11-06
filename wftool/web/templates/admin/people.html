@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}{{ t('People and groups') }}{% endblock %}
+{% block content %}
+<h1>{{ t('People and groups') }}</h1>
+<p class="lead">{{ t('Users and groups come from the AD import and are changed in AD, not here.') }}</p>
+
+<form method="get" class="searchbar">
+  <input name="q" value="{{ q }}" type="search" aria-label="{{ t('Search') }}" placeholder="{{ t('Search') }}">
+  <label class="check"><input type="checkbox" name="inactive" value="1" {% if show_inactive %}checked{% endif %}> {{ t('Show inactive') }}</label>
+  <button>{{ t('Search') }}</button>
+</form>
+
+<h2>{{ t('Users') }}</h2>
+{% if users %}
+<table class="data">
+  <thead><tr><th>{{ t('Name') }}</th><th>{{ t('Email') }}</th><th>{{ t('Department') }}</th><th>{{ t('Manager') }}</th><th>{{ t('Status') }}</th></tr></thead>
+  <tbody>{% for u in users %}
+    <tr><td>{{ u.display_name }}</td><td>{{ u.email }}</td><td>{{ u.department or '' }}</td><td>{{ u.manager_email or '' }}</td>
+      <td>{% if u.active %}<span class="stamp">{{ t('Active') }}</span>{% else %}<span class="stamp stamp-muted">{{ t('Inactive') }}</span>{% endif %}</td></tr>
+  {% endfor %}</tbody>
+</table>
+{% else %}<p class="empty">{{ t('No users imported yet.') }}</p>{% endif %}
+
+<h2>{{ t('Groups') }}</h2>
+{% if groups %}
+<table class="data">
+  <thead><tr><th>{{ t('Name') }}</th><th>{{ t('Members') }}</th><th>{{ t('Status') }}</th></tr></thead>
+  <tbody>{% for grp in groups %}
+    <tr><td><strong>{{ grp.name }}</strong></td><td>{{ grp.members | join(', ') }}</td>
+      <td>{% if grp.active %}<span class="stamp">{{ t('Active') }}</span>{% else %}<span class="stamp stamp-muted">{{ t('Inactive') }}</span>{% endif %}</td></tr>
+  {% endfor %}</tbody>
+</table>
+{% else %}<p class="empty">{{ t('No groups imported yet.') }}</p>{% endif %}
+{% endblock %}

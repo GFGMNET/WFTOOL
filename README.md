@@ -11,7 +11,7 @@ Licence: MIT. Design: see the design document v2 (Workflow Builder).
 | Phase | Content | State |
 | --- | --- | --- |
 | 1. Engine | Database, workflow definitions and versions, requests, steps, decisions, audit chain | **done** |
-| 2. Master data and admin | CSV import (AD users, groups, software), lists, settings, accounts | planned |
+| 2. Master data and admin | CSV import (AD users, groups, software), lists, settings, accounts | **done** |
 | 3. Builder | Form designer, workflow builder, publish checks in the browser | planned |
 | 4. Requests and email links | Pages, single-use links, outbox, reminders, signature upload | planned |
 | 5. Audit and reports | Tamper check page, daily anchor email, PDF and CSV reports | planned |
@@ -75,6 +75,30 @@ approval and sign steps can use `reject`; paper signatures never expire.
 `contains`, `not_contains`, `is_set`, `is_empty`, `any_needs_approval`.
 A step whose condition is false is skipped and logged.
 
+## Phase 2: master data and admin
+
+- **Start:** `python -m wftool run` (app on port 8080 plus the background
+  scheduler). First sign-in: **admin / admin**; the app forces a new password
+  at once. `python -m wftool import` runs the CSV import once.
+- **Folders:** `WFTOOL_DATA` (default `./data`: database, `import/` folder,
+  session key) and `WFTOOL_KEY_FILE` (default `./keys/wftool.key`). Keep the key
+  file outside the data folder and back it up separately.
+- **CSV import** (`wftool/imports.py`): `users.csv`, `groups.csv`, `software.csv`
+  in `data/import/`, checked every 5 minutes; unchanged files are skipped.
+  Format and safety rules: [examples/csv/README.md](examples/csv/README.md).
+- **Accounts** (`wftool/accounts.py`): roles admin, starter, auditor; passwords
+  at least 12 characters; 5 wrong attempts lock the account for 15 minutes;
+  sign-out after 60 minutes without activity.
+- **Who may start:** per workflow, one or more AD groups. A starter account's
+  email must belong to an active AD user in one of them. Admins may start all.
+- **Lists** (`wftool/applists.py`): hardware models, vendors and other
+  dropdowns, edited in the app; entries are deactivated, never deleted.
+- **Settings** (`wftool/settings.py`): SMTP (relay without login supported:
+  leave user and password empty), test email, company domains, app address,
+  admin email, deadlines, Saxony public holidays plus extra days off.
+- **Admin pages** (`wftool/web/`): German and English, CSRF-protected forms,
+  no external resources (no Google Fonts, no CDN).
+
 ## Examples
 
 `examples/workflows/` holds HR Onboard and IT Assets Checklist as definition
@@ -82,8 +106,7 @@ files; the tests import, publish and run both.
 
 ## Development
 
-Requires Python 3.11+ with `cryptography` (Flask, reportlab and PyYAML follow in
-later phases).
+Requires Python 3.11+ with `cryptography` and `Flask` (reportlab follows in phase 5).
 
 ```
 pip install -r requirements.txt

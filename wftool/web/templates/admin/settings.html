@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}{{ t('Settings') }}{% endblock %}
+{% block content %}
+{% set choice_labels = {'de': 'Deutsch', 'en': 'English', 'starttls': 'STARTTLS', 'tls': 'SSL/TLS'} %}
+<h1>{{ t('Settings') }}</h1>
+<form method="post" class="form settings">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  {% for group, title in groups %}
+  <fieldset>
+    <legend>{{ t(title) }}</legend>
+    {% if group == 'smtp' %}<p class="hint">{{ t('For a relay that allows this server by IP address, leave user and password empty.') }}</p>{% endif %}
+    {% if group == 'deadlines' %}<p class="hint">{{ t('Public holidays in Saxony are included automatically.') }}</p>{% endif %}
+    <div class="grid2">
+    {% for s in settings if s.group == group %}
+      <label id="{{ s.key }}" {% if s.key in errors %}class="invalid"{% endif %}><span>{{ label_of(s.label) }}{% if s.required %} <span class="req">({{ t('required') }})</span>{% endif %}</span>
+        {% if s.kind == 'choice' %}
+          <select name="{{ s.key }}">{% for c in s.choices %}<option value="{{ c }}" {% if values[s.key] == c %}selected{% endif %}>{{ choice_labels.get(c) or t(c) }}</option>{% endfor %}</select>
+        {% elif s.kind == 'secret' %}
+          <input name="{{ s.key }}" type="password" autocomplete="new-password" placeholder="{{ '••••••••' if values[s.key] else '' }}">
+          <span class="hint">{{ t('Leave empty to keep the saved password.') }}</span>
+          {% if values[s.key] %}<span class="check"><input type="checkbox" name="clear_{{ s.key }}" value="1" aria-label="{{ t('Remove saved password') }}"><span>{{ t('Remove saved password') }}</span></span>{% endif %}
+        {% elif s.kind == 'dates' %}
+          <textarea name="{{ s.key }}" rows="4">{{ values[s.key] }}</textarea>
+        {% else %}
+          <input name="{{ s.key }}" value="{{ values[s.key] }}" {% if s.kind == 'int' %}inputmode="numeric"{% endif %} {% if s.kind == 'email' %}type="email"{% endif %}>
+        {% endif %}
+        {% if s.key in errors %}<span class="field-error">{{ errors[s.key] }}</span>{% endif %}
+      </label>
+    {% endfor %}
+    </div>
+  </fieldset>
+  {% endfor %}
+  <button class="primary">{{ t('Save changes') }}</button>
+</form>
+
+<h2>{{ t('Send test email') }}</h2>
+<form method="post" action="{{ url_for('admin_settings_test') }}" class="row-form narrow-row">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <input name="to" type="email" value="{{ values.admin_email }}" required aria-label="{{ t('Send to') }}">
+  <button>{{ t('Send test email') }}</button>
+</form>
+{% endblock %}

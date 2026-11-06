@@ -7,3 +7,5 @@ __pycache__/
 data/
 *.key
 .venv/
+keys/
+session.key

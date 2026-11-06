@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}{{ t('Lists') }}{% endblock %}
+{% block content %}
+<h1>{{ t('Lists') }}</h1>
+<table class="data">
+  <thead><tr><th>{{ t('Name') }}</th><th>{{ t('List id') }}</th><th>{{ t('Entries') }}</th><th>{{ t('Source') }}</th></tr></thead>
+  <tbody>{% for l in lists %}
+    <tr><td><a href="{{ url_for('admin_list', name=l.name) }}"><strong>{{ l.label }}</strong></a></td><td><code>{{ l.name }}</code></td>
+      <td>{{ l.active_items }}{% if l.all_items != l.active_items %} <span class="hint">(+{{ l.all_items - l.active_items }} {{ t('Inactive')|lower }})</span>{% endif %}</td>
+      <td>{{ t('CSV import') if l.source == 'import' else t('This app') }}</td></tr>
+  {% endfor %}</tbody>
+</table>
+
+<h2>{{ t('New list') }}</h2>
+<form method="post" class="form">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <div class="grid2">
+    <label>{{ t('Name') }}<input name="label" required placeholder="Hardware models"></label>
+    <label>{{ t('List id') }}<input name="name" required pattern="[a-z][a-z0-9_]*" placeholder="hardware_models">
+      <span class="hint">{{ t('Used in the form designer; a-z, 0-9 and _.') }}</span></label>
+  </div>
+  <button class="primary">{{ t('Create list') }}</button>
+</form>
+{% endblock %}

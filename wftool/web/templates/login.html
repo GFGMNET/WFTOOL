@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}{{ t('Sign in') }}{% endblock %}
+{% block content %}
+<section class="narrow">
+  <h1>{{ t('Sign in') }}</h1>
+  <p class="lead">{{ t('Sign in to manage requests and approvals.') }}</p>
+  <form method="post" class="form">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <label>{{ t('Username') }}<input name="username" value="{{ username }}" autocomplete="username" required autofocus></label>
+    <label>{{ t('Password') }}<input name="password" type="password" autocomplete="current-password" required></label>
+    <button class="primary">{{ t('Sign in') }}</button>
+  </form>
+</section>
+{% endblock %}

@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="{{ g.lang }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{% endblock %} · WFTOOL</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="{{ url_for('home') }}">WFTOOL</a>
+  <div class="topbar-right">
+    <nav class="lang" aria-label="Language">
+      <a href="{{ url_for('set_language', lang='de') }}" {% if g.lang == 'de' %}aria-current="true"{% endif %}>DE</a>
+      <a href="{{ url_for('set_language', lang='en') }}" {% if g.lang == 'en' %}aria-current="true"{% endif %}>EN</a>
+    </nav>
+    {% if g.user %}
+      <span class="who">{{ t('Signed in as') }} <strong>{{ g.user.username }}</strong></span>
+      <a href="{{ url_for('password') }}">{{ t('Change password') }}</a>
+      <form method="post" action="{{ url_for('logout') }}" class="inline">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <button class="link">{{ t('Sign out') }}</button>
+      </form>
+    {% endif %}
+  </div>
+</header>
+<div class="shell{% if not g.user or g.user.must_change_password %} shell-single{% endif %}">
+  {% if g.user and not g.user.must_change_password %}
+  <nav class="sidenav" aria-label="{{ t('Administration') }}">
+    <a href="{{ url_for('home') }}" {% if request.endpoint == 'home' %}aria-current="page"{% endif %}>{{ t('Home') }}</a>
+    {% if g.user.role == 'admin' %}
+      <p class="sidenav-group">{{ t('Administration') }}</p>
+      {% for ep, label in [('admin_start_groups', 'Who may start'), ('admin_lists', 'Lists'), ('admin_people', 'People and groups'), ('admin_imports', 'Imports'), ('admin_accounts', 'Accounts'), ('admin_settings', 'Settings')] %}
+        <a href="{{ url_for(ep) }}" {% if request.endpoint and request.endpoint.startswith(ep) %}aria-current="page"{% endif %}>{{ t(label) }}</a>
+      {% endfor %}
+    {% endif %}
+  </nav>
+  {% endif %}
+  <main>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+      <div class="flashes" role="status">
+        {% for cat, msg in messages %}<p class="flash flash-{{ cat }}">{{ msg }}</p>{% endfor %}
+      </div>
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+</body>
+</html>

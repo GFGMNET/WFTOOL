@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}{{ t('Who may start') }}{% endblock %}
+{% block content %}
+<h1>{{ t('Who may start') }}</h1>
+<p class="lead">{{ t('Members of these groups may start the workflow. Admins may start every workflow.') }}</p>
+{% if rows %}
+<table class="data">
+  <thead><tr><th>{{ t('Workflow') }}</th><th>{{ t('Groups') }}</th></tr></thead>
+  <tbody>{% for r in rows %}
+    <tr><td><strong>{{ r.name }}</strong></td>
+      <td><form method="post" class="row-form">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="workflow" value="{{ r.name }}">
+        {% for grp in all_groups %}<label class="check"><input type="checkbox" name="groups" value="{{ grp }}" {% if grp in r.groups %}checked{% endif %}> {{ grp }}</label>{% endfor %}
+        {% if not all_groups %}<span class="hint">{{ t('No groups imported yet.') }}</span>{% endif %}
+        <button>{{ t('Save') }}</button>
+      </form></td></tr>
+  {% endfor %}</tbody>
+</table>
+{% else %}<p class="empty">{{ t('No workflow published yet. Workflows are built in the builder (next phase).') }}</p>{% endif %}
+{% endblock %}

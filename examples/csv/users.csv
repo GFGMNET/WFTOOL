@@ -1,0 +1,10 @@
+samaccountname;email;displayname;department;manager_email;enabled
+hhr;hanna.hr@company.de;Hanna Hoffmann;Personal;;True
+hho;holger.hr@company.de;Holger Hartmann;Personal;;True
+iit;ina.it@company.de;Ina Ivanović;IT;;True
+ivo;ivo.it@company.de;Ivo Iwanow;IT;;True
+mmu;max.mueller@company.de;Max Müller;Vertrieb;;True
+eva;eva.engel@company.de;Eva Engel;Vertrieb;max.mueller@company.de;True
+cca;carl.cad@company.de;Carl Cadmann;Konstruktion;;True
+pur;paula.purchase@company.de;Paula Pürschel;Einkauf;;True
+old;otto.alt@company.de;Otto Alt;Vertrieb;max.mueller@company.de;False

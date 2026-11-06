@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}{{ t('Accounts') }}{% endblock %}
+{% block content %}
+<h1>{{ t('Accounts') }}</h1>
+<table class="data">
+  <thead><tr><th>{{ t('Username') }}</th><th>{{ t('Role') }}</th><th>{{ t('Email') }}</th><th>{{ t('Language') }}</th><th>{{ t('Status') }}</th><th>{{ t('Last sign-in') }}</th></tr></thead>
+  <tbody>
+  {% for a in accounts %}
+    <tr>
+      <td><strong>{{ a.username }}</strong>
+        {% if a.must_change_password %}<br><span class="hint">{{ t('must change password') }}</span>{% endif %}
+        {% if a.locked_until and a.locked_until > now %}<br><span class="stamp stamp-red">{{ t('Locked until') }} {{ a.locked_until[11:16] }} UTC</span>{% endif %}
+      </td>
+      <td colspan="4">
+        <form method="post" action="{{ url_for('admin_account_update', account_id=a.id) }}" class="row-form">
+          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+          <select name="role" aria-label="{{ t('Role') }}">{% for r in roles %}<option value="{{ r }}" {% if r == a.role %}selected{% endif %}>{{ t(r) }}</option>{% endfor %}</select>
+          <input name="email" type="email" value="{{ a.email or '' }}" aria-label="{{ t('Email') }}" placeholder="name@company.de">
+          <select name="language" aria-label="{{ t('Language') }}"><option value="de" {% if a.language == 'de' %}selected{% endif %}>DE</option><option value="en" {% if a.language == 'en' %}selected{% endif %}>EN</option></select>
+          <select name="active" aria-label="{{ t('Status') }}"><option value="1" {% if a.active %}selected{% endif %}>{{ t('Active') }}</option><option value="0" {% if not a.active %}selected{% endif %}>{{ t('Inactive') }}</option></select>
+          <button>{{ t('Save') }}</button>
+        </form>
+        <details class="sub">
+          <summary>{{ t('Set temporary password') }}</summary>
+          <form method="post" action="{{ url_for('admin_account_update', account_id=a.id) }}" class="row-form">
+            <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+            <input type="hidden" name="action" value="password">
+            <input name="password" type="password" minlength="12" required autocomplete="new-password" aria-label="{{ t('Temporary password') }}">
+            <button>{{ t('Set temporary password') }}</button>
+            <span class="hint">{{ t('The user must change it at the first sign-in.') }}</span>
+          </form>
+        </details>
+      </td>
+      <td>{{ a.last_login_at[:16].replace('T', ' ') if a.last_login_at else t('never') }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h2>{{ t('New account') }}</h2>
+<form method="post" class="form">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <div class="grid2">
+    <label>{{ t('Username') }}<input name="username" required autocomplete="off"></label>
+    <label>{{ t('Role') }}<select name="role">{% for r in roles %}<option value="{{ r }}" {% if r == 'starter' %}selected{% endif %}>{{ t(r) }}</option>{% endfor %}</select></label>
+    <label>{{ t('Email of the AD user') }}<input name="email" type="email" placeholder="name@company.de">
+      <span class="hint">{{ t('Needed for starters: it decides which workflows they may start.') }}</span></label>
+    <label>{{ t('Language') }}<select name="language"><option value="de">Deutsch</option><option value="en">English</option></select></label>
+    <label>{{ t('Temporary password') }}<input name="password" type="password" minlength="12" required autocomplete="new-password">
+      <span class="hint">{{ t('At least 12 characters.') }} {{ t('The user must change it at the first sign-in.') }}</span></label>
+  </div>
+  <button class="primary">{{ t('Create account') }}</button>
+</form>
+{% endblock %}

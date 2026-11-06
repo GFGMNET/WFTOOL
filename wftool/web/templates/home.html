@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}{{ t('Home') }}{% endblock %}
+{% block content %}
+{% if attention and (attention.missing or attention.rejected_imports or attention.default_admin) %}
+<section class="attention">
+  <h2>{{ t('Needs attention') }}</h2>
+  <ul>
+    {% if attention.default_admin %}<li>{{ t('The default password of admin is still active.') }}</li>{% endif %}
+    {% if attention.missing %}
+      <li>{{ t('These settings are still empty:') }}
+        {% for s in attention.missing %}<a href="{{ url_for('admin_settings') }}#{{ s.key }}">{{ label_of(s.label) }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</li>
+    {% endif %}
+    {% for r in attention.rejected_imports %}
+      <li>{{ t('The last import was rejected:') }} <a href="{{ url_for('admin_imports') }}">{{ r.file_name }}</a> – {{ r.message }}</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<h1>{{ t('Start a request') }}</h1>
+{% if startable %}
+  <ul class="plain">
+    {% for name in startable %}<li class="start-item">{{ name }}</li>{% endfor %}
+  </ul>
+  <p class="hint">{{ t('Starting requests follows in the next build phase.') }}</p>
+{% else %}
+  <p class="empty">{{ t('No workflow is open to you yet. An admin sets who may start each workflow.') }}</p>
+{% endif %}
+{% endblock %}
