@@ -31,6 +31,7 @@
   <nav class="sidenav" aria-label="{{ t('Administration') }}">
     <a href="{{ url_for('home') }}" {% if request.endpoint == 'home' %}aria-current="page"{% endif %}>{{ t('Home') }}</a>
     <a href="{{ url_for('request_list') }}" {% if request.endpoint and request.endpoint.startswith('request_') %}aria-current="page"{% endif %}>{{ t('Requests') }}</a>
+    {% if g.user.role in ('admin', 'auditor') %}<a href="{{ url_for('audit_page') }}" {% if request.endpoint == 'audit_page' %}aria-current="page"{% endif %}>{{ t('Audit') }}</a>{% endif %}
     {% if g.user.role == 'admin' %}
       <p class="sidenav-group">{{ t('Administration') }}</p>
       {% for ep, label in [('admin_workflow', 'Workflows'), ('admin_tasks', 'Open tasks'), ('admin_start_groups', 'Who may start'), ('admin_lists', 'Lists'), ('admin_people', 'People and groups'), ('admin_imports', 'Imports'), ('admin_accounts', 'Accounts'), ('admin_outbox', 'Outbox'), ('admin_settings', 'Settings')] %}

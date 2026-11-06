@@ -403,3 +403,15 @@ dl.view { margin: 0; display: grid; gap: 0; }
   .decide .primary { flex: 1 1 100%; }
   .row-alert td, table.data td { overflow-wrap: anywhere; }
 }
+
+/* ------------------------------------------------------------------ phase 5: search and audit */
+.search-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(11rem, 100%), 1fr)); gap: .6rem 1rem; align-items: end; padding: 1rem; background: var(--sheet); border: 1px solid var(--rule); border-radius: var(--radius); margin-bottom: .75rem; }
+.search-form label { display: grid; gap: .25rem; font-weight: 600; font-size: .875rem; }
+.search-actions { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; }
+.pager { display: flex; gap: 1.25rem; align-items: center; margin-top: 1rem; }
+.audit-check { display: grid; gap: .6rem; margin-bottom: 1.5rem; }
+.audit-check .ok-box { margin: 0; }
+.audit-check code { word-break: break-all; }
+.audit-check, .audit-check > * { min-width: 0; }
+.audit-check .row-form { flex-wrap: wrap; }
+.audit-check .row-form button { white-space: normal; }

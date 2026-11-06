@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}{{ t('Audit') }}{% endblock %}
+{% block content %}
+<h1>{{ t('Audit') }}</h1>
+<p class="lead">{{ t('Every change is an entry in the event log. Each entry carries a fingerprint of the one before, so a changed or removed entry is found by the check. The daily email to the admin keeps the newest fingerprint outside the app.') }}</p>
+
+<section class="audit-check">
+  <form method="post" class="row-form"><input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <button name="action" value="verify" class="primary">{{ t('Check the event log now') }}</button>
+    {% if g.user.role == 'admin' %}<button name="action" value="anchor">{{ t('Send the fingerprint email now') }}</button>{% endif %}
+  </form>
+  {% if check %}
+    {% if check.ok %}<p class="ok-box"><span class="stamp stamp-ok">{{ t('OK') }}</span> {{ t('{n} entries checked; the chain is unchanged.').format(n=check.checked) }}</p>
+    {% else %}<p class="flash flash-error"><strong>{{ t('The event log was changed.') }}</strong> {{ t('First broken entry: {id} – {problem}.').format(id=check.first_bad_id, problem=check.problem) }}</p>{% endif %}
+  {% endif %}
+  <p class="hint">{{ t('Newest entry') }} {{ last_hash[0] }} · <code>{{ last_hash[1] }}</code></p>
+  <p class="hint">{% if retention %}{{ t('Retention is on: IP address and browser are removed from requests closed more than {n} months ago.').format(n=retention) }}{% else %}{{ t('Retention is off.') }}{% endif %}</p>
+</section>
+
+<details class="versions" {% if anchors and not anchors[0].matches %}open{% endif %}><summary>{{ t('Fingerprint emails sent') }} ({{ anchors|length }})</summary>
+  {% if anchors %}<table class="data"><thead><tr><th>{{ t('Day') }}</th><th>{{ t('To') }}</th><th>{{ t('Entry') }}</th><th>{{ t('Fingerprint') }}</th><th>{{ t('Still matches') }}</th></tr></thead>
+  <tbody>{% for x in anchors %}<tr {% if not x.matches %}class="row-alert"{% endif %}><td>{{ local_time(x.ts) }}</td><td>{{ x.data.to }}</td><td>{{ x.data.last_id }}</td><td><code>{{ x.data.hash[:16] }}…</code></td>
+    <td>{% if x.matches %}<span class="stamp stamp-ok">{{ t('yes') }}</span>{% else %}<span class="stamp stamp-red">{{ t('no') }}</span>{% endif %}</td></tr>{% endfor %}</tbody></table>
+  {% else %}<p class="empty">{{ t('None yet. The first one is sent at the time set in Settings.') }}</p>{% endif %}
+</details>
+
+<h2>{{ t('Event log') }}</h2>
+<form method="get" class="search-form">
+  <label>{{ t('From') }}<input type="date" name="date_from" value="{{ f.date_from or '' }}"></label>
+  <label>{{ t('to') }}<input type="date" name="date_to" value="{{ f.date_to or '' }}"></label>
+  <label>{{ t('Event') }}<select name="type"><option value="">{{ t('All') }}</option>{% for ty in types %}<option value="{{ ty }}" {% if f.type == ty %}selected{% endif %}>{{ ty }}</option>{% endfor %}</select></label>
+  <label>{{ t('Person') }}<input type="search" name="person" value="{{ f.person or '' }}"></label>
+  <label>{{ t('Request no.') }}<input type="search" name="number" value="{{ f.number or '' }}"></label>
+  <div class="search-actions"><button class="primary">{{ t('Search') }}</button>{% if query %}<a href="{{ url_for('audit_page') }}">{{ t('Reset') }}</a>{% endif %}</div>
+</form>
+<p class="hint">{{ t('{n} entries').format(n=total) }}{% if pages > 1 %} · {{ t('page {p} of {n}').format(p=page, n=pages) }}{% endif %}. {{ t('Secret values never appear in the log.') }}</p>
+<table class="data">
+  <thead><tr><th>#</th><th>{{ t('Time') }}</th><th>{{ t('Event') }}</th><th>{{ t('Request') }}</th><th>{{ t('Who') }}</th><th>{{ t('IP') }}</th></tr></thead>
+  <tbody>{% for e in rows %}<tr {% if check and check.first_bad_id == e.id %}class="row-alert"{% endif %}>
+    <td>{{ e.id }}</td><td>{{ local_time(e.ts) }}</td>
+    <td><code>{{ e.type }}</code>{% if e.data.step %} · {{ e.data.step }}{% endif %}{% if e.data.decision %} · {{ e.data.decision }}{% endif %}{% if e.redacted_at %} <span class="hint">{{ t('IP and browser removed (retention)') }}</span>{% endif %}</td>
+    <td>{% if e.request_id %}<a href="{{ url_for('request_detail', request_id=e.request_id) }}">{{ e.number }}</a>{% endif %}</td>
+    <td>{{ e.actor or '' }}</td><td>{{ e.ip or '' }}</td></tr>{% endfor %}</tbody>
+</table>
+{% if pages > 1 %}
+<nav class="pager" aria-label="{{ t('Pages') }}">
+  {% if page > 1 %}<a href="{{ url_for('audit_page', page=page - 1, **query) }}">← {{ t('Previous') }}</a>{% endif %}
+  <span>{{ page }} / {{ pages }}</span>
+  {% if page < pages %}<a href="{{ url_for('audit_page', page=page + 1, **query) }}">{{ t('Next') }} →</a>{% endif %}
+</nav>
+{% endif %}
+{% endblock %}

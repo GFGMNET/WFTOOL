@@ -2,13 +2,14 @@
 
 Every 30 seconds it sends due emails from the outbox; every 5 minutes it also
 runs the CSV import (unchanged files are skipped) and the timers (expiry,
-reminder, notice to the starter). One process means nothing is sent twice.
+reminder, notice to the starter), and once a day from the anchor time the
+anchor email and retention. One process means nothing is sent twice.
 """
 
 import logging
 import threading
 
-from . import imports, outbox, timers
+from . import imports, outbox, reports, timers
 
 log = logging.getLogger("wftool.scheduler")
 
@@ -49,6 +50,14 @@ class Scheduler:
                     log.info("timers: %s", result)
             except Exception:
                 log.exception("timers failed")
+        try:
+            if reports.anchor_due(self.db):
+                reports.send_anchor(self.db)
+                result = reports.apply_retention(self.db)
+                if result.get("on"):
+                    log.info("retention: %s", result)
+        except Exception:
+            log.exception("daily anchor or retention failed")
         self.send_mail()
 
     def send_mail(self):

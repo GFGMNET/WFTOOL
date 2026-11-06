@@ -224,3 +224,161 @@ def print_pdf(db, req, task, lang="de"):
               _p(T["paper_hint"], st["small"])]
     footer = f"{T['request']} {req['number']} · {T['fingerprint']}: {req['form_fingerprint'] or ''}"
     return _build(story, footer)
+
+
+# --- full report (phase 5) ------------------------------------------------------
+
+REPORT_TXT = {
+    "de": {"versions": "Frühere Versionen des Formulars", "version": "Version", "changed": "Geändert",
+           "by": "von", "none_changed": "keine Änderung an den Angaben", "history": "Verlauf",
+           "fetched": "Geöffnete Links (keine Entscheidung; auch Mailfilter öffnen Links)",
+           "check": "Prüfung des Ereignisprotokolls", "check_ok": "In Ordnung: {n} Einträge geprüft, Kette unverändert.",
+           "check_bad": "FEHLER: Eintrag {id} – {problem}. Das Protokoll wurde verändert.",
+           "time": "Zeitpunkt", "event": "Ereignis", "who": "Wer", "ip": "IP / Browser",
+           "scan": "Scan der Unterschrift auf Papier", "scan_fp": "SHA-256 des Scans",
+           "report": "Bericht", "created": "Erstellt", "removed": "(entfernt)", "added": "(neu)",
+           "rounds": "Frühere Durchgänge", "round": "Durchgang"},
+    "en": {"versions": "Earlier versions of the form", "version": "Version", "changed": "Changed",
+           "by": "by", "none_changed": "no change to the details", "history": "History",
+           "fetched": "Links opened (not a decision; mail filters open links too)",
+           "check": "Check of the event log", "check_ok": "OK: {n} entries checked, chain unchanged.",
+           "check_bad": "ERROR: entry {id} – {problem}. The log was changed.",
+           "time": "Time", "event": "Event", "who": "Who", "ip": "IP / browser",
+           "scan": "Scan of the paper signature", "scan_fp": "SHA-256 of the scan",
+           "report": "Report", "created": "Created", "removed": "(removed)", "added": "(new)",
+           "rounds": "Earlier rounds", "round": "Round"},
+}
+
+
+def _diff(db, definition, old, new, lang, show_secrets):
+    a = dict(present.flat(present.rows(db, definition, old, lang, show_secrets=show_secrets)))
+    b = dict(present.flat(present.rows(db, definition, new, lang, show_secrets=show_secrets)))
+    R = REPORT_TXT[lang]
+    out = []
+    for key in list(dict.fromkeys(list(a) + list(b))):
+        if a.get(key) != b.get(key):
+            out.append((key, a.get(key, R["added"]), b.get(key, R["removed"])))
+    return out
+
+
+def report_pdf(db, req, lang="de", *, files=None, versions=(), events=(), check=None, show_secrets=True):
+    """The full report: data, steps with signatures, the paper scan, earlier versions with their changes,
+    the history (opened links apart), and the result of the tamper check. Returns PDF bytes."""
+    st = _styles()
+    width = A4[0] - 36 * mm
+    T, R = TXT[lang], REPORT_TXT[lang]
+    if not show_secrets:
+        secret_ids = {f["id"] for f in req["definition"]["fields"] if f["type"] == "secret"}
+        req = dict(req, form={k: (present.MASK if k in secret_ids and v else v) for k, v in req["form"].items()})
+    story = _header(req, lang, st, db)
+    story.append(_p(f"{R['report']} · {R['created']} {present.local_time(clock_now_iso(), lang)}", st["small"]))
+    story.append(_p(T["data"], st["h2"]))
+    story.extend(_data_flowables(db, req, lang, st, width))
+    story.extend(_steps(req, lang, st, width, files))
+
+    # paper scans: fingerprint, and the scan itself
+    scans = []
+    for t in req["tasks"]:
+        if t["decision"] == "signed_paper" and t.get("scan_file") and files is not None:
+            scan_event = next((e for e in events if e["type"] == "task.paper_uploaded"
+                               and e["data"].get("task") == t["id"]), None)
+            story.append(_p(R["scan"], st["h2"]))
+            story.append(_p(f"{t['decided_by']} · {present.local_time(t['decided_at'], lang)}", st["base"]))
+            if scan_event:
+                story.append(_p(f"{R['scan_fp']}: {scan_event['data'].get('scan_fingerprint')}", st["small"]))
+            try:
+                scans.append(files.load(t["scan_file"]))
+            except Exception:
+                pass
+
+    # decisions of earlier rounds (before a rejection sent the request back)
+    earlier = [t for t in req["tasks"] if t["round"] != req["round"] and t["status"] == "done"]
+    if earlier:
+        story.append(_p(R["rounds"], st["h2"]))
+        rows = [[_p(R["round"], st["bold"]), _p(T["step"], st["bold"]), _p(T["who"], st["bold"]),
+                 _p(T["decision"], st["bold"]), _p(T["when"], st["bold"])]]
+        for t in earlier:
+            step = req["definition"]["steps"][t["step_index"]]
+            decision = present.name_of(present.DECISION_NAMES, t["decision"], lang)
+            if t["reason"]:
+                decision += f"\n{T['reason']}: {t['reason']}"
+            rows.append([_p(str(t["round"]), st["base"]),
+                         _p(f"{t['step_index'] + 1}. {label_text(step.get('label'), lang) or step['id']}", st["base"]),
+                         _p(t["decided_by"] or t["assignee_email"], st["base"]), _p(decision, st["base"]),
+                         _p(present.local_time(t["decided_at"], lang), st["base"])])
+        story.append(_table(rows, [width * 0.1, width * 0.3, width * 0.22, width * 0.22, width * 0.16], header=True))
+
+    # earlier versions
+    if len(versions) > 1:
+        story.append(_p(R["versions"], st["h2"]))
+        for prev, cur in zip(versions, versions[1:]):
+            story.append(_p(f"{R['version']} {cur['version']} · {present.local_time(cur['created_at'], lang)} · "
+                            f"{R['by']} {cur['created_by']}", st["bold"]))
+            changes = _diff(db, req["definition"], prev["data"], cur["data"], lang, show_secrets)
+            if not changes:
+                story.append(_p(R["none_changed"], st["small"]))
+                continue
+            rows = [[_p(k, st["label"]), _p(old, st["base"]), _p("→ " + new, st["base"])] for k, old, new in changes]
+            story.append(_table(rows, [width * 0.34, width * 0.33, width * 0.33]))
+
+    # history: decisions and other events, opened links apart
+    def event_rows(items):
+        rows = [[_p(R["time"], st["bold"]), _p(R["event"], st["bold"]), _p(R["who"], st["bold"]),
+                 _p(R["ip"], st["bold"])]]
+        for e in items:
+            detail = e["data"].get("step") or e["data"].get("decision") or ""
+            rows.append([_p(present.local_time(e["ts"], lang), st["small"]), _p(f"{e['type']} {detail}".strip(), st["small"]),
+                         _p(e["actor"] or "", st["small"]),
+                         _p(" / ".join(x for x in (e["ip"], _short_agent(e["user_agent"])) if x), st["small"])])
+        return _table(rows, [width * 0.18, width * 0.34, width * 0.26, width * 0.22], header=True)
+
+    main = [e for e in events if e["type"] != "link.fetched"]
+    fetched = [e for e in events if e["type"] == "link.fetched"]
+    if main:
+        story += [_p(R["history"], st["h2"]), event_rows(main)]
+    if fetched:
+        story += [_p(R["fetched"], st["h2"]), event_rows(fetched)]
+
+    if check is not None:
+        story.append(_p(R["check"], st["h2"]))
+        story.append(_p(R["check_ok"].format(n=check["checked"]) if check["ok"]
+                        else R["check_bad"].format(id=check["first_bad_id"], problem=check["problem"]), st["bold"]))
+
+    footer = f"{T['request']} {req['number']} · {T['fingerprint']}: {req['form_fingerprint'] or ''}"
+    data = _build(story, footer)
+    return _append_scans(data, scans)
+
+
+def clock_now_iso():
+    from . import clock
+    return clock.now_iso()
+
+
+def _append_scans(data, scans):
+    """Add the paper scans as pages: PDF pages as they are, images on a page of their own."""
+    if not scans:
+        return data
+    from pypdf import PdfReader, PdfWriter
+    writer = PdfWriter()
+    for page in PdfReader(io.BytesIO(data)).pages:
+        writer.add_page(page)
+    for scan in scans:
+        try:
+            if scan.startswith(b"%PDF"):
+                for page in PdfReader(io.BytesIO(scan)).pages:
+                    writer.add_page(page)
+            else:
+                img = Image(io.BytesIO(scan))
+                ratio = img.imageHeight / float(img.imageWidth or 1)
+                w = A4[0] - 36 * mm
+                img.drawWidth, img.drawHeight = w, min(w * ratio, A4[1] - 40 * mm)
+                buf = io.BytesIO()
+                SimpleDocTemplate(buf, pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm, topMargin=18 * mm,
+                                  bottomMargin=18 * mm).build([img])
+                for page in PdfReader(io.BytesIO(buf.getvalue())).pages:
+                    writer.add_page(page)
+        except Exception:  # a broken scan must not stop the report
+            continue
+    out = io.BytesIO()
+    writer.write(out)
+    return out.getvalue()

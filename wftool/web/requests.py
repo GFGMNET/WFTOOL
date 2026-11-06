@@ -7,13 +7,15 @@ and uses up the link (design: "Why opening the link does not decide").
 
 import base64
 import binascii
-import json
+import json  # noqa: F401  (used by the audit page)
 
 from flask import (
     Response, abort, current_app, flash, g, redirect, render_template, request, url_for,
 )
 
-from .. import audit, links, masterdata, outbox, pdf, present, workflows
+from datetime import date
+
+from .. import audit, links, masterdata, outbox, pdf, present, reports, workflows
 from ..definitions import label_text, start_fields, step_fields
 from ..engine import Actor
 from ..errors import NotFound, StateError, ValidationError, WFError
@@ -83,38 +85,45 @@ def _name_of(table, key):
 
 # ------------------------------------------------------------------- list
 
+def _filters():
+    a = request.args
+    out = {k: a.get(k, "").strip() for k in ("workflow", "person", "status", "number")}
+    for k in ("date_from", "date_to"):
+        try:
+            out[k] = date.fromisoformat(a.get(k, "")) if a.get(k) else None
+        except ValueError:
+            out[k] = None
+    return out
+
+
+def _starter_only():
+    return (_my_email() or "-") if g.user["role"] == "starter" else None
+
+
 @login_required
 def request_list():
     db = _db()
-    status = request.args.get("status", "")
-    q = request.args.get("q", "").strip()
-    sql = ("SELECT r.*, v.definition_json FROM requests r JOIN workflow_versions v ON v.id = r.workflow_version_id"
-           " WHERE 1 = 1")
-    params = []
-    if g.user["role"] == "starter":
-        sql += " AND r.starter_email = ?"
-        params.append(_my_email() or "-")
-    if status in ("open", "returned", "completed", "cancelled"):
-        sql += " AND r.status = ?"
-        params.append(status)
-    if q:
-        sql += " AND (r.number LIKE ? OR r.starter_email LIKE ?)"
-        params += [f"%{q}%", f"%{q}%"]
-    rows = []
-    for r in db.all(sql + " ORDER BY r.id DESC LIMIT 300", params):
-        r = dict(r)
-        definition = json.loads(r.pop("definition_json"))
-        r["workflow"] = label_text(definition.get("label"), g.lang) or definition["name"]
-        r["step"] = None
-        if r["status"] == "open" and r["current_step"] is not None:
-            step = definition["steps"][r["current_step"]]
-            r["step"] = label_text(step.get("label"), g.lang) or step["id"]
-            r["waiting_for"] = [x["assignee_email"] for x in db.all(
-                "SELECT assignee_email FROM tasks WHERE request_id = ? AND round = ? AND step_index = ?"
-                " AND status IN ('open', 'paper_pending')", (r["id"], r["round"], r["current_step"]))]
-        rows.append(r)
-    return render_template("requests/list.html", rows=rows, status=status, q=q,
-                           startable=_startable())
+    filters = _filters()
+    try:
+        page = int(request.args.get("page", "1"))
+    except ValueError:
+        page = 1
+    result = reports.search(db, filters, starter_only=_starter_only(), page=page, lang=g.lang)
+    names = [r["name"] for r in db.all("SELECT DISTINCT w.name FROM workflows w JOIN workflow_versions v"
+                                       " ON v.workflow_id = w.id ORDER BY w.name")]
+    query = {k: (v.isoformat() if hasattr(v, "isoformat") else v) for k, v in filters.items() if v}
+    return render_template("requests/list.html", result=result, rows=result["rows"], f=query,
+                           workflows=names, startable=_startable(), query=query)
+
+
+@login_required
+def request_csv():
+    db = _db()
+    rows = reports.all_rows(db, _filters(), starter_only=_starter_only(), lang=g.lang)
+    audit.record(db, "report.csv_exported", actor=g.user["username"], **_client(),
+                 data={"rows": len(rows), "filters": {k: str(v) for k, v in _filters().items() if v}})
+    return Response(reports.to_csv(rows, g.lang), mimetype="text/csv",
+                    headers={"Content-Disposition": f'attachment; filename="wftool-{date.today().isoformat()}.csv"'})
 
 
 def _startable():
@@ -176,7 +185,10 @@ def request_new(workflow_id):
 def request_detail(request_id):
     db = _db()
     req = _load(request_id)
-    show = request.method == "POST" and request.form.get("action") == "show_secrets" and _can_act(req)
+    has_secrets = any(f["type"] == "secret" for f in req["definition"]["fields"])
+    auditor = g.user["role"] == "auditor"
+    show = has_secrets and (auditor or (request.method == "POST" and request.form.get("action") == "show_secrets"
+                                        and _can_act(req)))
     if show:
         audit.record(db, "secret.viewed", request_id=req["id"], actor=g.user["username"], **_client(),
                      data={"page": "request"})
@@ -205,7 +217,7 @@ def request_detail(request_id):
     return render_template(
         "requests/detail.html", req=req, steps=steps, earlier=earlier, history=history,
         blocks=present.rows(db, definition, req["form"], g.lang, show_secrets=show),
-        has_secrets=any(f["type"] == "secret" for f in definition["fields"]), show=show,
+        has_secrets=has_secrets, show=show,
         can_act=_can_act(req), is_admin=g.user["role"] == "admin",
         is_starter=bool(_my_email()) and _my_email() == req["starter_email"].lower(),
         title=label_text(definition.get("label"), g.lang) or definition["name"], users=_users())
@@ -272,15 +284,15 @@ def request_resubmit(request_id):
 
 @login_required
 def request_pdf(request_id):
+    """The full report (phase 5). Secret values are shown: to IT and admins as before, and to
+    auditors, as decided on 6 Nov 2026. Each download is logged."""
     db = _db()
     req = _load(request_id)
-    lang = g.lang
-    show = g.user["role"] != "auditor"
-    if not show:
-        req = dict(req, form={k: ("••••" if _is_secret(req, k) else v) for k, v in req["form"].items()})
-    data = pdf.request_pdf(db, req, lang, files=_files())
+    engine = _engine()
+    data = pdf.report_pdf(db, req, g.lang, files=_files(), versions=engine.form_versions(req["id"]),
+                          events=audit.events_for(db, req["id"]), check=audit.verify(db), show_secrets=True)
     audit.record(db, "request.pdf_downloaded", request_id=req["id"], actor=g.user["username"], **_client(),
-                 data={"secrets_shown": show})
+                 data={"secrets_shown": True, "report": True})
     return Response(data, mimetype="application/pdf",
                     headers={"Content-Disposition": f'attachment; filename="{req["number"]}.pdf"'})
 
@@ -468,7 +480,76 @@ def admin_outbox():
                            status=status)
 
 
+def auditor_required(view):
+    from functools import wraps
+
+    @wraps(view)
+    @login_required
+    def wrapper(*args, **kwargs):
+        if g.user["role"] not in ("admin", "auditor"):
+            abort(403)
+        return view(*args, **kwargs)
+    return wrapper
+
+
+@auditor_required
+def audit_page():
+    db = _db()
+    check = None
+    if request.method == "POST":
+        action = request.form.get("action")
+        if action == "verify":
+            check = audit.verify(db)
+            audit.record(db, "audit.verified", actor=g.user["username"], **_client(),
+                         data={"ok": check["ok"], "checked": check["checked"], "first_bad_id": check["first_bad_id"]})
+        elif action == "anchor" and g.user["role"] == "admin":
+            if reports.send_anchor(db, by=g.user["username"]):
+                flash(t("The fingerprint email was queued for the admin email."), "ok")
+            else:
+                flash(t("No admin email in Settings."), "error")
+            return redirect(url_for("audit_page"))
+    a = request.args
+    where, params = ["1 = 1"], []
+    for key, col in (("date_from", ">="), ("date_to", "<")):
+        try:
+            day = date.fromisoformat(a.get(key, ""))
+        except ValueError:
+            continue
+        if key == "date_to":
+            from datetime import timedelta
+            day = day + timedelta(days=1)
+        where.append(f"e.ts {col} ?")
+        params.append(reports._day_start_utc(day))
+    if a.get("type"):
+        where.append("e.type LIKE ?")
+        params.append(a.get("type").strip() + "%")
+    if a.get("person"):
+        where.append("LOWER(e.actor) LIKE ?")
+        params.append(f"%{a.get('person').strip().lower()}%")
+    if a.get("number"):
+        where.append("r.number LIKE ?")
+        params.append(f"%{a.get('number').strip()}%")
+    try:
+        page = max(1, int(a.get("page", "1")))
+    except ValueError:
+        page = 1
+    size = 100
+    base = " FROM events e LEFT JOIN requests r ON r.id = e.request_id WHERE " + " AND ".join(where)
+    total = db.one("SELECT COUNT(*) AS n" + base, params)["n"]
+    rows = [dict(r, data=json.loads(r["data_json"])) for r in db.all(
+        "SELECT e.*, r.number" + base + " ORDER BY e.id DESC LIMIT ? OFFSET ?", params + [size, (page - 1) * size])]
+    anchors = [dict(x, matches=reports.anchor_matches(db, x)) for x in reports.anchors(db)]
+    types = [r["type"] for r in db.all("SELECT DISTINCT type FROM events ORDER BY type")]
+    query = {k: a.get(k) for k in ("date_from", "date_to", "type", "person", "number") if a.get(k)}
+    return render_template("audit/index.html", rows=rows, total=total, page=page,
+                           pages=max(1, (total + size - 1) // size), check=check, anchors=anchors, types=types,
+                           f=query, query=query, retention=reports.retention_months(db),
+                           last_hash=audit.latest_hash(db))
+
+
 ROUTES = [
+    ("/requests.csv", request_csv, ["GET"]),
+    ("/audit", audit_page, ["GET", "POST"]),
     ("/requests", request_list, ["GET"]),
     ("/requests/new/<int:workflow_id>", request_new, ["GET", "POST"]),
     ("/requests/<int:request_id>", request_detail, ["GET", "POST"]),

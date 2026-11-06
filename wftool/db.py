@@ -218,6 +218,19 @@ MIGRATIONS = [
     CREATE INDEX links_task ON links(task_id);
     CREATE INDEX outbox_due ON outbox(status, next_attempt_at);
     """,
+    # 4: phase 5 – IP address and browser enter the chain as salted fingerprints, so retention can
+    # remove the values later without breaking the tamper check; lookups for search and the audit page.
+    """
+    ALTER TABLE events ADD COLUMN hash_version INTEGER NOT NULL DEFAULT 1;
+    ALTER TABLE events ADD COLUMN field_salt TEXT;
+    ALTER TABLE events ADD COLUMN ip_hash TEXT;
+    ALTER TABLE events ADD COLUMN ua_hash TEXT;
+    ALTER TABLE events ADD COLUMN redacted_at TEXT;
+    ALTER TABLE tasks ADD COLUMN redacted_at TEXT;
+    CREATE INDEX events_type ON events(type);
+    CREATE INDEX requests_created ON requests(created_at);
+    CREATE INDEX tasks_decided_by ON tasks(decided_by);
+    """,
 ]
 
 

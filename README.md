@@ -13,8 +13,8 @@ Licence: MIT. Design: see the design document v2 (Workflow Builder).
 | 1. Engine | Database, workflow definitions and versions, requests, steps, decisions, audit chain | **done** |
 | 2. Master data and admin | CSV import (AD users, groups, software), lists, settings, accounts | **done** |
 | 3. Builder | Form designer with sections, workflow builder, publish checks, export/import | **done** |
-| 4. Requests and email links | Request pages, single-use links, HTML emails, outbox, reminders, signatures | **done, waiting for review** |
-| 5. Audit and reports | Search, CSV, full PDF report, audit page, daily anchor email, retention | planned, see [docs/phase5-6-plan.md](docs/phase5-6-plan.md) |
+| 4. Requests and email links | Request pages, single-use links, HTML emails, outbox, reminders, signatures | **done** |
+| 5. Audit and reports | Search, CSV, full PDF report, audit page, daily anchor email, retention | **done** |
 | 6. Setup and operation | Docker, backup, health page, AD export script, end-to-end tests, install guide | planned, see [docs/phase5-6-plan.md](docs/phase5-6-plan.md) |
 
 ## Phase 1: what the engine does
@@ -74,6 +74,33 @@ approval and sign steps can use `reject`; paper signatures never expire.
 `{"field": "...", "op": "...", "value": ...}` with `equals`, `not_equals`,
 `contains`, `not_contains`, `is_set`, `is_empty`, `any_needs_approval`.
 A step whose condition is false is skipped and logged.
+
+## Phase 5: audit and reports
+
+Plan and decisions: [docs/phase5-6-plan.md](docs/phase5-6-plan.md).
+
+- **Search** (*Requests*): by start date, workflow, person (starter or anyone who
+  acted, by name or email), status and request number; 50 per page. Starters
+  see only their own requests; admins and auditors see all.
+- **CSV export** of the search result (`wftool/reports.py`): semicolon, UTF-8 for
+  Excel, one row per request with its decisions; never contains form values.
+- **PDF report** (*PDF* on the request page or in the list, `pdf.report_pdf`):
+  the data, every step with person, time, IP address and browser, the signature,
+  the paper scan as extra pages with its fingerprint, decisions of earlier rounds,
+  earlier form versions with what changed, the history ("link opened" listed
+  apart, never as proof), and the result of the tamper check.
+- **Audit** page (admin and auditor): the event log with filters, *Check the event
+  log now*, and the list of daily fingerprint emails with "still matches".
+- **Daily fingerprint email** to the admin email at 06:00 (Settings → Audit and
+  retention): the newest fingerprint of the log, so removing the newest entries
+  is noticed too.
+- **Secret values for auditors** (owner decision): auditors always see PIN, PUK
+  and unlock PIN on the request page and in the PDF; each viewing is logged.
+  Lists, CSV, emails and the audit page keep them masked.
+- **Retention** (Settings, empty = off): once a day, IP address and browser are
+  removed from requests closed more than the set months ago; decisions stay.
+  The event log keeps salted fingerprints of IP address and browser, so the
+  tamper check still passes after removal (`wftool/audit.py`).
 
 ## Phase 4: requests, email links and emails
 

@@ -61,6 +61,12 @@ SETTINGS = [
     Setting("extra_holidays", "dates", "deadlines",
             label={"de": "Weitere freie Tage (JJJJ-MM-TT, je Zeile)",
                    "en": "Extra days off (YYYY-MM-DD, one per line)"}),
+    Setting("anchor_time", "time", "audit", "06:00",
+            label={"de": "Tägliche Prüfwert-E-Mail an den Admin (Uhrzeit)",
+                   "en": "Daily fingerprint email to the admin (time)"}),
+    Setting("retention_months", "int", "audit", "", low=1, high=600,
+            label={"de": "Aufbewahrung: IP-Adresse und Browser entfernen nach (Monaten, leer = aus)",
+                   "en": "Retention: remove IP address and browser after (months, empty = off)"}),
     Setting("import_max_deactivate_percent", "int", "import", "10", low=1, high=100,
             label={"de": "Import: max. Deaktivierung auf einmal (%)",
                    "en": "Import: max. deactivation at once (%)"}),
@@ -121,7 +127,7 @@ def _check(s, raw):
     if not raw:
         if s.required:
             raise ValueError("required")
-        return s.default if s.kind in ("int", "choice") else ""
+        return s.default if s.kind in ("int", "choice", "time") else ""
     if s.kind == "int":
         try:
             n = int(raw)
@@ -130,6 +136,13 @@ def _check(s, raw):
         if (s.low is not None and n < s.low) or (s.high is not None and n > s.high):
             raise ValueError(f"must be between {s.low} and {s.high}")
         return str(n)
+    if s.kind == "time":
+        try:
+            hh, mm = (int(x) for x in raw.split(":"))
+            assert 0 <= hh < 24 and 0 <= mm < 60
+        except (ValueError, AssertionError):
+            raise ValueError("must be a time such as 06:00") from None
+        return f"{hh:02d}:{mm:02d}"
     if s.kind == "choice":
         if raw not in s.choices:
             raise ValueError(f"must be one of {', '.join(s.choices)}")

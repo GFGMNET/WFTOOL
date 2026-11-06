@@ -351,7 +351,8 @@ def admin_settings():
         values.update({k: v for k, v in request.form.items() if k in settings.BY_KEY and settings.BY_KEY[k].kind
                        != "secret"})
     error_keys = {e.split(":", 1)[0]: e.split(":", 1)[1].strip() for e in errors}
-    groups = [("smtp", "Email (SMTP)"), ("general", "General"), ("deadlines", "Deadlines"), ("import", "Import")]
+    groups = [("smtp", "Email (SMTP)"), ("general", "General"), ("deadlines", "Deadlines"), ("import", "Import"),
+              ("audit", "Audit and retention")]
     return render_template("admin/settings.html", settings=settings.SETTINGS, values=values, groups=groups,
                            errors=error_keys)
 

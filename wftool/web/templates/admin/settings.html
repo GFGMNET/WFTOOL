@@ -9,6 +9,7 @@
   <fieldset>
     <legend>{{ t(title) }}</legend>
     {% if group == 'smtp' %}<p class="hint">{{ t('For a relay that allows this server by IP address, leave user and password empty.') }}</p>{% endif %}
+    {% if group == 'audit' %}<p class="hint">{{ t('Retention stays off until it is agreed with the data protection officer. When on, it runs once a day for requests closed longer than the set months; decisions stay.') }}</p>{% endif %}
     {% if group == 'deadlines' %}<p class="hint">{{ t('Public holidays in Saxony are included automatically.') }}</p>{% endif %}
     <div class="grid2">
     {% for s in settings if s.group == group %}

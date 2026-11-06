@@ -8,27 +8,40 @@
   {% for w in startable %}<a class="button-like" href="{{ url_for('request_new', workflow_id=w.id) }}">+ {{ w.label }}</a>{% endfor %}
 </div>
 {% endif %}
-<form method="get" class="searchbar">
-  <input type="search" name="q" value="{{ q }}" placeholder="{{ t('Request number or email') }}" aria-label="{{ t('Search') }}">
-  <select name="status" aria-label="{{ t('Status') }}">
-    <option value="">{{ t('All') }}</option>
-    {% for s in ['open', 'returned', 'completed', 'cancelled'] %}<option value="{{ s }}" {% if status == s %}selected{% endif %}>{{ name_of('STATUS_NAMES', s) }}</option>{% endfor %}
-  </select>
-  <button>{{ t('Search') }}</button>
+<form method="get" class="search-form" aria-label="{{ t('Search') }}">
+  <label>{{ t('Started from') }}<input type="date" name="date_from" value="{{ f.date_from or '' }}"></label>
+  <label>{{ t('to') }}<input type="date" name="date_to" value="{{ f.date_to or '' }}"></label>
+  <label>{{ t('Workflow') }}<select name="workflow"><option value="">{{ t('All') }}</option>{% for w in workflows %}<option value="{{ w }}" {% if f.workflow == w %}selected{% endif %}>{{ w }}</option>{% endfor %}</select></label>
+  <label>{{ t('Person') }}<input type="search" name="person" value="{{ f.person or '' }}" placeholder="{{ t('name or email') }}"></label>
+  <label>{{ t('Status') }}<select name="status"><option value="">{{ t('All') }}</option>{% for s in ['open', 'returned', 'completed', 'cancelled'] %}<option value="{{ s }}" {% if f.status == s %}selected{% endif %}>{{ name_of('STATUS_NAMES', s) }}</option>{% endfor %}</select></label>
+  <label>{{ t('Request no.') }}<input type="search" name="number" value="{{ f.number or '' }}" placeholder="2026-0042"></label>
+  <div class="search-actions"><button class="primary">{{ t('Search') }}</button>
+    {% if query %}<a href="{{ url_for('request_list') }}">{{ t('Reset') }}</a>{% endif %}
+    <a class="button-like" href="{{ url_for('request_csv', **query) }}">{{ t('CSV export') }}</a></div>
 </form>
+<p class="hint">{{ t('{n} request(s)').format(n=result.total) }}{% if result.pages > 1 %} · {{ t('page {p} of {n}').format(p=result.page, n=result.pages) }}{% endif %}</p>
 {% if rows %}
 <table class="data">
-  <thead><tr><th>{{ t('Request no.') }}</th><th>{{ t('Workflow') }}</th><th>{{ t('Status') }}</th><th>{{ t('Waiting for') }}</th><th>{{ t('Started by') }}</th><th>{{ t('Last change') }}</th></tr></thead>
+  <thead><tr><th>{{ t('Request no.') }}</th><th>{{ t('Workflow') }}</th><th>{{ t('Status') }}</th><th>{{ t('Waiting for') }} / {{ t('Decisions') }}</th><th>{{ t('Started by') }}</th><th>{{ t('Started') }}</th><th>PDF</th></tr></thead>
   <tbody>{% for r in rows %}
     <tr>
       <td><a href="{{ url_for('request_detail', request_id=r.id) }}"><strong>{{ r.number }}</strong></a></td>
       <td>{{ r.workflow }}</td>
       <td>{% include "requests/_status.html" %}</td>
-      <td>{% if r.step %}{{ r.step }}<span class="hint">{{ r.waiting_for|join(', ') }}</span>{% endif %}</td>
-      <td>{{ r.starter_email }}</td>
-      <td>{{ local_time(r.updated_at) }}</td>
+      <td>{% if r.step %}{{ r.step }}<span class="hint">{{ r.waiting_for|join(', ') }}</span>{% endif %}
+        {% for d in r.decisions %}<span class="hint">{{ d.step }}: {{ d.decision }} – {{ d.by }}</span>{% endfor %}</td>
+      <td>{{ person_name(r.starter_email) }}<span class="hint">{{ r.starter_email }}</span></td>
+      <td>{{ local_time(r.created_at) }}</td>
+      <td><a href="{{ url_for('request_pdf', request_id=r.id) }}" aria-label="{{ t('PDF report') }} {{ r.number }}">PDF</a></td>
     </tr>
   {% endfor %}</tbody>
 </table>
+{% if result.pages > 1 %}
+<nav class="pager" aria-label="{{ t('Pages') }}">
+  {% if result.page > 1 %}<a href="{{ url_for('request_list', page=result.page - 1, **query) }}">← {{ t('Previous') }}</a>{% endif %}
+  <span>{{ result.page }} / {{ result.pages }}</span>
+  {% if result.page < result.pages %}<a href="{{ url_for('request_list', page=result.page + 1, **query) }}">{{ t('Next') }} →</a>{% endif %}
+</nav>
+{% endif %}
 {% else %}<p class="empty">{{ t('No requests found.') }}</p>{% endif %}
 {% endblock %}

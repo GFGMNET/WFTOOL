@@ -97,6 +97,7 @@
   <section class="detail-side">
     <h2>{{ t('Details') }}</h2>
     <div class="sheet">{{ form.view(blocks) }}</div>
+    {% if show and has_secrets %}<p class="hint">{{ t('Secret values are shown; viewing is logged.') }}</p>{% endif %}
     {% if has_secrets and can_act and not show %}
     <form method="post" class="row-form"><input type="hidden" name="_csrf" value="{{ csrf_token() }}">
       <button name="action" value="show_secrets" class="small">{{ t('Show secret values') }}</button>
