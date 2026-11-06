@@ -14,8 +14,8 @@ Licence: MIT. Design: see the design document v2 (Workflow Builder).
 | 2. Master data and admin | CSV import (AD users, groups, software), lists, settings, accounts | **done** |
 | 3. Builder | Form designer with sections, workflow builder, publish checks, export/import | **done** |
 | 4. Requests and email links | Request pages, single-use links, HTML emails, outbox, reminders, signatures | **done, waiting for review** |
-| 5. Audit and reports | Tamper check page, daily anchor email, PDF and CSV reports | planned |
-| 6. Examples and setup | Docker setup, end-to-end tests | planned |
+| 5. Audit and reports | Search, CSV, full PDF report, audit page, daily anchor email, retention | planned, see [docs/phase5-6-plan.md](docs/phase5-6-plan.md) |
+| 6. Setup and operation | Docker, backup, health page, AD export script, end-to-end tests, install guide | planned, see [docs/phase5-6-plan.md](docs/phase5-6-plan.md) |
 
 ## Phase 1: what the engine does
 
