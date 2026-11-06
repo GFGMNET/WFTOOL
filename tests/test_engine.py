@@ -283,3 +283,43 @@ def test_simultaneous_group_confirm_counts_once(engine):
     assert req["status"] == "completed"
     assert sum(1 for t in req["tasks"] if t["decision"] == "confirmed") == 1
     assert audit.verify(engine.db)["ok"]
+
+
+# ---------------------------------------------------------------- timeouts
+
+def test_expired_task_waits_by_default(engine, notifier):
+    req = engine.start("HR Onboard", actor("hr1@co.de"), HR_START)
+    task = open_tasks(req)[0]
+    req = engine.expire_task(task["id"], 14)
+    assert req["status"] == "open" and engine.get_task(task["id"])["status"] == "open"
+    assert notifier.hooks("task_expired") == [{"request": req["number"], "task": task["id"]}]
+
+
+def test_expired_task_rejects_when_configured(engine, notifier):
+    d = load_example("hr_onboard.json")
+    d["steps"][1]["on_timeout"] = "reject"
+    workflows.save_draft(engine.db, d, by="admin@co.de")
+    workflows.publish(engine.db, "HR Onboard", by="admin@co.de")
+
+    req = engine.start("HR Onboard", actor("hr1@co.de"), HR_START)
+    req = engine.decide(open_tasks(req)[0]["id"], "approved", actor("mgr@co.de"),
+                        values={"software": ["AutoCAD", "Visio"]})
+    cad = next(t for t in open_tasks(req) if t["item_value"] == "AutoCAD")
+    req = engine.expire_task(cad["id"], 14)
+
+    assert req["status"] == "returned"
+    expired = engine.get_task(cad["id"])
+    assert expired["decision"] == "rejected" and expired["decided_by"] == "system"
+    assert "No response within 14 days" in expired["reason"]
+    assert all(t["status"] != "open" for t in req["tasks"])  # Visio cancelled too
+    assert notifier.hooks("request_returned")[0]["reason"] == expired["reason"]
+    assert engine.expire_task(cad["id"], 14)["status"] == "returned"  # second call changes nothing
+
+
+def test_timeout_reject_only_on_approval_and_sign_steps():
+    from wftool.definitions import validate
+    d = load_example("hr_onboard.json")
+    d["steps"][3]["on_timeout"] = "reject"  # forward_to_it is a confirm step
+    assert any("rejected automatically" in p for p in validate(d))
+    d["steps"][3]["on_timeout"] = "later"
+    assert any("must be 'wait' or 'reject'" in p for p in validate(d))

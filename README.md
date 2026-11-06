@@ -61,6 +61,14 @@ approver) also goes to the admin, and the event log says why.
 `starter`, `manager_of` (manager of a person field, or of the starter),
 `item_approver` (only in `approve_per_item`).
 
+### No response (`on_timeout`)
+
+When a task's link expires (14 days by default), `wait` (default) keeps the
+step open and tells the starter and the admin, who can resend or reassign;
+`reject` rejects the task automatically with the reason "No response within
+14 days", and the request goes where the step's `on_reject` says. Only
+approval and sign steps can use `reject`; paper signatures never expire.
+
 ### Conditions (`when`)
 
 `{"field": "...", "op": "...", "value": ...}` with `equals`, `not_equals`,

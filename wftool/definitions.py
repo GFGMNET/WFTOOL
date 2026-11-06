@@ -42,6 +42,8 @@ GROUP_ALLOWED_STEP_TYPES = {"notify", "confirm"}
 WHO_KINDS = {"person", "group", "field", "starter", "manager_of", "item_approver"}
 CONDITION_OPS = {"equals", "not_equals", "contains", "not_contains", "is_set", "is_empty", "any_needs_approval"}
 ON_REJECT = {"starter", "previous"}
+ON_TIMEOUT = {"wait", "reject"}
+TIMEOUT_REJECT_STEP_TYPES = {"approve", "fill_approve", "approve_per_item", "sign"}
 
 _ID = re.compile(r"^[a-z][a-z0-9_]{0,39}$")
 _EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -210,6 +212,11 @@ def validate(definition):
 
         if step.get("on_reject", "starter") not in ON_REJECT:
             p.append(f"{where}: on_reject must be 'starter' or 'previous'.")
+        timeout = step.get("on_timeout", "wait")
+        if timeout not in ON_TIMEOUT:
+            p.append(f"{where}: on_timeout must be 'wait' or 'reject'.")
+        elif timeout == "reject" and stype not in TIMEOUT_REJECT_STEP_TYPES:
+            p.append(f"{where}: only approval and sign steps can be rejected automatically.")
         if step.get("on_reject") == "previous" and index == 0:
             p.append(f"{where}: the first step cannot send a rejection back one step.")
 

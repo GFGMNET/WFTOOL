@@ -31,6 +31,9 @@ class Notifier:
     def paper_requested(self, request, task):
         """A signature will be given on paper: tell the starter to print and later upload."""
 
+    def task_expired(self, request, task):
+        """A task's link expired and the step waits: tell the starter and the admin."""
+
 
 class RecordingNotifier(Notifier):
     """Keeps every call in `calls` as (hook, details); used by the tests."""
@@ -66,6 +69,9 @@ class RecordingNotifier(Notifier):
 
     def paper_requested(self, request, task):
         self._add("paper_requested", request=request["number"], task=task["id"])
+
+    def task_expired(self, request, task):
+        self._add("task_expired", request=request["number"], task=task["id"])
 
     def hooks(self, name):
         return [d for h, d in self.calls if h == name]

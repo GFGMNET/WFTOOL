@@ -311,6 +311,33 @@ class Engine:
         self.notifier.paper_requested(req, task)
         return self.get_request(req["id"])
 
+    def expire_task(self, task_id, days):
+        """Called when a task's link expires without an answer (scheduler, phase 4).
+
+        Step setting on_timeout: "wait" (default) keeps the task open and tells the
+        starter and the admin; "reject" rejects it automatically, which then goes
+        where the step's on_reject says. Paper signatures never expire.
+        """
+        system = Actor("system", via="timer")
+        with self.db.tx():
+            task = self.get_task(task_id)
+            req = self._request(task["request_id"])
+            if req["status"] != "open" or task["status"] != "open" or task["round"] != req["round"]:
+                return self.get_request(req["id"])  # already decided, cancelled or on paper
+            step = req["definition"]["steps"][task["step_index"]]
+            if step.get("on_timeout", "wait") != "reject":
+                self._event("task.expired", req["id"], system, {"task": task["id"], "step": step["id"],
+                                                                "days": days, "action": "wait"})
+                self.notifier.task_expired(req, task)
+                return self.get_request(req["id"])
+            reason = (f"Keine Antwort innerhalb von {days} Tagen / "
+                      f"No response within {days} days")
+            _, form_version, form_fp = self._current_form(req["id"])
+            self._event("task.expired", req["id"], system, {"task": task["id"], "step": step["id"],
+                                                            "days": days, "action": "reject"})
+            self._close_task(task, "rejected", system, reason, form_version, form_fp, None)
+            return self._after_decision(req, task, step, "rejected", system)
+
     def complete_paper(self, task_id, actor, scan_bytes):
         """The starter uploads the signed scan; the sign step completes as 'signed_paper'."""
         with self.db.tx():
