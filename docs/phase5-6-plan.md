@@ -148,6 +148,8 @@ tested there. Everything else is tested here as before.
 
 ## Test suite in Docker (built in phase 6)
 
+The test setup uses its own data and is never the go-live setup.
+
 One command runs every test on any machine with Docker, with no Python setup:
 
 ```
@@ -187,7 +189,47 @@ shows a red "TEST MODE" bar when it is on.
 
 Done when the command above passes on a fresh machine with only Docker installed.
 
-## Wiki articles (written in phase 6)
+## Process from now to go-live (agreed 6 Nov 2026)
+
+1. **Phase 5** (audit and reports), push, short stop.
+2. **Phase 6** (Docker image and test suite), push. Phase 6 contains:
+   - the test suite (see "Test suite in Docker"), started with one command;
+   - **example CSV files** built into the test suite (people, groups, software), so every test starts with data;
+   - a **test import folder** on the host, mounted into the test container (`./test-data/import`),
+     so you can drop your own CSV files there and watch the import (Admin → Imports);
+   - a folder **`templates/csv/`** in git with empty templates (`users.csv`, `groups.csv`,
+     `software.csv`: header line plus one example line) and a **very short instruction**
+     (`templates/csv/README.md`): which columns, UTF-8, semicolon, file names, where to put them.
+3. **Review by the owner:** you test whether everything works together and talk to me in the chat.
+   - I record **every issue and every improvement as a GitHub issue** in GFGMNET/WFTOOL
+     (label `bug` or `improvement`), with steps to reproduce.
+4. **When you say "all tests done":**
+   - for each improvement I write in the issue, very short, the **risk** and the **impact** and whether
+     it can be done without impact on what works;
+   - I **fix the open issues** (bugs). After each fix: rebuild the test suite, run it, notify you,
+     and **the test process starts again from the beginning** (step 3).
+5. **When all issues are solved:** I give you an **overview of the improvements**; you decide which
+   are implemented. Every implemented improvement (feature) means **testing starts again** (step 3).
+6. **After your final approval:** I build the **go-live docker compose file** and **the wiki**.
+
+### Go-live: empty start
+
+- The go-live compose file has **one volume for the data** (database, import folder, encrypted files)
+  and the **key file mounted separately** (read-only), as the design requires.
+- It starts **empty: no data, no workflow, no test settings, no test mode**.
+- The wiki's **"Getting started"** covers the first start completely, as short, clear steps in a
+  fixed order, without optional paths:
+  1. start the container;
+  2. sign in as admin, set a new password;
+  3. Settings: app address, Exchange relay, sender, admin email, company domain → send test email;
+  4. put your CSV files into the import folder → check Admin → Imports;
+  5. Lists: enter hardware models and vendors;
+  6. Accounts: create the HR and IT accounts with their AD email;
+  7. Workflows: build the first workflow, publish;
+  8. Who may start: choose the AD groups;
+  9. start a first request and follow it to the end.
+
+## Wiki articles (written after the final approval, step 6)
 
 The GitHub wiki of GFGMNET/WFTOOL, German first with English versions. Each
 article is short, task-based, with screenshots from `docs/screenshots/`. The
@@ -224,7 +266,7 @@ README keeps only the overview and links to the wiki.
 Done when every article exists in German and English and each admin task in
 the app can be done by following one article.
 
-## Going live: test → production (wiki article "Going live", written in phase 6)
+## Going live: test → production (wiki article "Going live", written after the final approval)
 
 | Area | Test | Production |
 | --- | --- | --- |
