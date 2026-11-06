@@ -13,18 +13,43 @@ State: plan, 6 Nov 2026. Phases 1–4 are done. Each phase ends with a push to
 | 2 | 5 | May auditors see secret values (PIN, PUK)? | **Decided 6 Nov 2026: yes, always visible to auditors** |
 | 3 | 5 | CSV export format | **Decided 6 Nov 2026: Semicolon, UTF-8 for Excel** |
 | 4 | 5 | Retention (design: built in, off until agreed with the data protection officer): what should it do when switched on? | **Decided 6 Nov 2026: Remove IP address and browser from requests closed more than N months ago; decisions and PDFs stay** |
-| 5 | 6 | Mail server for testing | **Decided 6 Nov 2026: A test mail server in the Docker setup whose emails you can read in the browser (Mailpit); your Postfix only for real sending** |
+| 5 | 6 | Mail server for testing | **Decided 6 Nov 2026: A test mail server in the Docker setup whose emails you can read in the browser (Mailpit); production uses the Exchange relay** |
 | 6 | 6 | Production web server inside the container | **Decided 6 Nov 2026: waitress (one process, as the design requires)** |
 
 **What I will do:** phase 5, review stop, phase 6, review stop. Details below.
 
+**Known about the production environment** (owner, 6 Nov 2026):
+- The app runs locally (on-premises, in the company network only; no internet access needed).
+- Production email goes through an **Exchange relay** (receive connector that allows the app server's IP, no login).
+- AD groups are named as in the examples (HR, IT, Purchasing …).
+- Backups are done by the owner; the wiki says what to back up (data folder, key file separately).
+
 **What I need from you:**
 - Phase 5: nothing.
-- Phase 6: four facts about your server (can be answered later, before phase 6 starts):
-  1. Operating system of the server that runs Docker (Linux or Windows).
-  2. Which reverse proxy you use (nginx, IIS, Traefik, Caddy or none yet), and the app's address, e.g. `https://wftool.company.local`.
-  3. Your AD group names to export (HR, IT, …) and the OU of the users, for the PowerShell export script. Without them I use example values.
-  4. Your Postfix (or other) mail server: host, port, encryption, and whether it needs a login.
+- Phase 6 (before it starts):
+  1. Operating system of the machine that runs the app (Windows or Linux), see "Why the operating system matters" below.
+  2. Which reverse proxy you use (IIS, nginx, Traefik, Caddy or none yet), and the app's address, e.g. `https://wftool.company.local`.
+  3. Where the HTTPS certificate comes from (internal CA or other).
+  4. The OU of the users for the PowerShell export script (group names are known). Without it I use an example value.
+  5. Exchange relay: host name and port (usually 25), and whether it uses STARTTLS.
+
+### Why the operating system matters
+
+"Local" still means the app runs on one machine in your network; the OS of
+that machine decides how it is installed and started:
+
+- **Linux:** Docker runs natively; the container starts at boot with Docker's
+  restart policy. Folder paths like `/srv/wftool/data`.
+- **Windows Server:** Docker for Linux containers needs WSL2 or Docker Desktop
+  (Docker Desktop needs a paid licence in larger companies), or the app runs
+  without Docker as a Python Windows service. Folder paths like
+  `D:\WFTOOL\data`, start at boot as a service.
+- It decides which reverse proxy example fits (IIS on Windows, nginx on Linux)
+  and how the import folder is shared with the PowerShell export script,
+  which itself always runs on a Windows machine with AD access.
+
+The installation guide and the test command are written for the one OS you
+use, so the steps can be followed without translation.
 
 ---
 
@@ -97,12 +122,12 @@ server, your reverse proxy and the PowerShell export.
    - database changes run automatically on start (migrations exist since phase 1).
 2. **docker-compose.yml** with the app and, for testing, Mailpit
    (decision 5): every email the app sends is visible at
-   `http://server:8025`. For production, Settings point to your Postfix instead.
-3. **Reverse proxy examples** for the proxy you name (nginx, IIS or Traefik):
+   `http://server:8025`. For production, Settings point to the Exchange relay instead.
+3. **Reverse proxy example** for the proxy you name (IIS, nginx or Traefik):
    HTTPS, forwarded headers, secure cookies (`WFTOOL_SECURE_COOKIE=1`).
-4. **Backup and update**:
-   - `python -m wftool backup <file>`: consistent SQLite copy while the app runs (online backup);
-   - written steps for backing up `/data` and the key file separately;
+4. **Backup support and update** (backups themselves are done by the owner):
+   - `python -m wftool backup <file>`: consistent SQLite copy while the app runs, for your backup job to pick up;
+   - wiki: what to back up (`/data` and the key file, separately) and how to test a restore;
    - update steps: pull the new image, restart; the data stays.
 5. **Health page** (admin): last import, emails waiting or failed, last daily
    anchor, open tasks past their reminder, disk space of the data folder.
@@ -186,23 +211,48 @@ README keeps only the overview and links to the wiki.
 | 3 | Reverse proxy and HTTPS | IT admin | Example for the proxy in use, forwarded headers, secure cookies |
 | 4 | Settings | admin | SMTP (relay without login), test email, company domains, app address, deadlines, holidays |
 | 5 | AD and software import | IT admin | PowerShell export script, Task Scheduler, CSV format, safety rules (10 %), import page |
+| 5a | AD groups and workflows | admin | Groups named after the team (HR, IT, Purchasing) as in the examples; adding a group to the export script; tying a group to a workflow in three places: *Who may start*, a *Confirm* step (first member confirms for all) and a *Notify* step; approvals always go to one person, never a group |
 | 6 | Lists | admin | Hardware models and vendors, deactivate instead of delete |
 | 7 | Building a workflow | admin | Form designer, sections (conditional, repeatable), steps, who, conditions, email texts, publish, versions |
 | 8 | Example: IT Assets Checklist | admin | Step-by-step rebuild of the example, as in the phase 3 acceptance test |
 | 9 | Example: HR Onboard | admin | Fields, manager approval, software approval per item, HR confirm, IT copy |
-| 10 | Who may start | admin | Groups per workflow, accounts with email |
+| 10 | Who may start | admin | Groups per workflow, accounts with email (see 5a) |
+| 10a | Accounts and roles | admin | Creating accounts, the AD email on each account, roles admin/starter/auditor, password rules, locked accounts |
 | 11 | Starting and following a request | starter | Start form, request page, resend, cancel, change and resend after rejection |
 | 12 | Approving and signing from an email | approvers, signers | What the email looks like, the link page, reject with reason, signature pad, paper |
 | 13 | Paper signature | starter | Print, sign, scan, upload with the request number |
 | 14 | Search, PDF and CSV | auditor, admin | Search filters, PDF report, CSV export, secret values (auditors see them; viewing is logged) |
 | 15 | Audit and tamper check | auditor, admin | Event log, chain check, daily anchor email, what to do if the check fails |
 | 16 | Reminders, expiry and reassigning | admin | Timers, open tasks page, inactive people, outbox |
-| 17 | Backup, restore and update | IT admin | Backup command, key file backup kept separately, restore test, update steps |
+| 17 | Backup, restore and update | IT admin | What to back up (data folder, key file separately), backup command, restore test, update steps |
+| 17a | Key file and encryption | IT admin | Where the key file lives, why it is kept apart from the data, what is lost without it (secret values, signatures, scans), never reuse the test key |
+| 17b | Exchange relay | IT admin | Receive connector allowing the app server's IP without login, sender address, SPF/DKIM so emails are not marked as spam, test email from Settings |
+| 17c | DNS name and certificate | IT admin | Internal name such as `wftool.company.local`, certificate from the internal CA trusted by all browsers, links work only inside the company network |
+| 17d | Moving workflows from test to production | admin | Export on the test system, import on production, check, publish; never copy the test database |
+| 17e | Health and daily checks | admin | Health page, warnings on the start page (failed emails, inactive people, rejected imports), outbox |
 | 18 | Data protection and retention | admin, data protection officer | What is recorded, works council note (§87(1) no. 6 BetrVG), retention setting, not legal advice |
 | 19 | Troubleshooting / FAQ | everyone | Emails not arriving, link no longer works, import rejected, locked account, forgotten admin password |
 
 Done when every article exists in German and English and each admin task in
 the app can be done by following one article.
+
+## Going live: test → production (wiki article "Going live", written in phase 6)
+
+| Area | Test | Production |
+| --- | --- | --- |
+| App address (Settings) | localhost | real HTTPS address; every email link is built from it |
+| Email (Settings) | Mailpit | Exchange relay: host, port, STARTTLS yes/no, no login, sender address |
+| HTTPS | none | reverse proxy with certificate from the internal CA, `WFTOOL_SECURE_COOKIE=1` |
+| Key file | test key | new key, outside the data folder, backed up separately |
+| Database | test data | fresh start; workflows come over by export/import (17d) |
+| Admin | admin/admin | new password, admin email set |
+| Accounts | test users | real HR/IT accounts, each with its AD email |
+| AD import | example CSV files | PowerShell script, service account, Task Scheduler, import folder |
+| Company domain, days off | example | your domain(s), extra days off |
+| Who may start | test groups | AD groups per workflow (HR, IT …) |
+| Test mode | may be on | off (no red "TEST MODE" bar) |
+| Backup | none | owner's backup job: data folder and key file separately; one restore test |
+| Data protection | – | works council and data protection officer agreed, retention setting chosen |
 
 ## Order and size (estimate from the design, not a measurement)
 
