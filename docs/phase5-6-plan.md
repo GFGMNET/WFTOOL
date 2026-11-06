@@ -5,12 +5,12 @@ State: plan, 6 Nov 2026. Phases 1–4 are done. Each phase ends with a push to
 
 ## Short version
 
-**To decide** (recommendation in brackets; answer only where you want something else):
+**To decide** (recommendation in the last column; answer only where you want something else; decided rows are marked):
 
 | # | Phase | Question | Recommendation |
 | --- | --- | --- | --- |
 | 1 | 5 | Daily tamper-check email to the admin: at what time? | 06:00 |
-| 2 | 5 | May auditors see secret values (PIN, PUK)? | No, always masked |
+| 2 | 5 | May auditors see secret values (PIN, PUK)? | **Decided 6 Nov 2026: yes, always visible to auditors** |
 | 3 | 5 | CSV export format | Semicolon, UTF-8 for Excel |
 | 4 | 5 | Retention (design: built in, off until agreed with the data protection officer): what should it do when switched on? | Remove IP address and browser from requests closed more than N months ago; decisions and PDFs stay |
 | 5 | 6 | Mail server for testing | A test mail server in the Docker setup whose emails you can read in the browser (Mailpit); your Postfix only for real sending |
@@ -56,8 +56,11 @@ Goal (design): "show me yesterday's request and who approved it" is one search a
    fingerprint of the event log to the admin email, and stores that it did.
    The audit page lists the anchors sent, so deleting or rebuilding entries
    no longer matches what was emailed.
-6. **Secret values** masked everywhere in lists, CSV and the audit page; the
-   log records that a secret was viewed or printed, never its value.
+6. **Secret values for auditors** (decided 6 Nov 2026): auditors always see
+   secret values (PIN, PUK, unlock PIN) on the request page and in the PDF
+   report, like IT does; phase 4 still masks them for auditors and is changed
+   accordingly. Lists, CSV export, emails and the audit page keep them masked
+   (design). The log records that a secret was viewed or printed, never its value.
 7. **Retention setting** (default off): when switched on, the scheduler applies
    the agreed rule (decision 4) to requests closed longer than the set
    number of months, and logs each run. It cannot be switched on without the
@@ -65,8 +68,8 @@ Goal (design): "show me yesterday's request and who approved it" is one search a
 
 ### Tests
 
-Search filters and permissions (starter only own, auditor read-only, no
-secrets for auditors), CSV content and encoding, PDF content (pypdf text
+Search filters and permissions (starter only own, auditor read-only but
+sees secret values on the request page and in the PDF; viewing is logged), CSV content and encoding, PDF content (pypdf text
 check, earlier versions, signature, paper scan), tamper check detecting a
 changed and a deleted entry, anchor email once per day, retention dry run and
 real run.
