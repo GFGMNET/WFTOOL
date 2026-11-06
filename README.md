@@ -12,6 +12,8 @@ Licence: MIT. Design: see the design document v2 (Workflow Builder).
 | --- | --- | --- |
 | 1. Engine | Database, workflow definitions and versions, requests, steps, decisions, audit chain | **done** |
 | 2. Master data and admin | CSV import (AD users, groups, software), lists, settings, accounts | **done** |
+
+Next: phase 3, see [docs/phase3-brief.md](docs/phase3-brief.md).
 | 3. Builder | Form designer, workflow builder, publish checks in the browser | planned |
 | 4. Requests and email links | Pages, single-use links, outbox, reminders, signature upload | planned |
 | 5. Audit and reports | Tamper check page, daily anchor email, PDF and CSV reports | planned |
