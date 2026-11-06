@@ -34,6 +34,15 @@ class Notifier:
     def task_expired(self, request, task):
         """A task's link expired and the step waits: tell the starter and the admin."""
 
+    def task_resent(self, request, task, reason):
+        """Send the task again with a new link (reason 'resent' or 'reminder'); the old link stops working."""
+
+    def starter_notice(self, request, task, days):
+        """A task has been open for `days` working days: tell the starter."""
+
+    def paper_reminder(self, request, task):
+        """A paper signature is still waiting for its scan: remind the starter."""
+
 
 class RecordingNotifier(Notifier):
     """Keeps every call in `calls` as (hook, details); used by the tests."""
@@ -72,6 +81,15 @@ class RecordingNotifier(Notifier):
 
     def task_expired(self, request, task):
         self._add("task_expired", request=request["number"], task=task["id"])
+
+    def task_resent(self, request, task, reason):
+        self._add("task_resent", request=request["number"], task=task["id"], reason=reason)
+
+    def starter_notice(self, request, task, days):
+        self._add("starter_notice", request=request["number"], task=task["id"], days=days)
+
+    def paper_reminder(self, request, task):
+        self._add("paper_reminder", request=request["number"], task=task["id"])
 
     def hooks(self, name):
         return [d for h, d in self.calls if h == name]

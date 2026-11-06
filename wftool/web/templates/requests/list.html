@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}{{ t('Requests') }}{% endblock %}
+{% block content %}
+<h1>{{ t('Requests') }}</h1>
+{% if startable %}
+<div class="start-row">
+  <span class="prop-label">{{ t('Start a request') }}</span>
+  {% for w in startable %}<a class="button-like" href="{{ url_for('request_new', workflow_id=w.id) }}">+ {{ w.label }}</a>{% endfor %}
+</div>
+{% endif %}
+<form method="get" class="searchbar">
+  <input type="search" name="q" value="{{ q }}" placeholder="{{ t('Request number or email') }}" aria-label="{{ t('Search') }}">
+  <select name="status" aria-label="{{ t('Status') }}">
+    <option value="">{{ t('All') }}</option>
+    {% for s in ['open', 'returned', 'completed', 'cancelled'] %}<option value="{{ s }}" {% if status == s %}selected{% endif %}>{{ name_of('STATUS_NAMES', s) }}</option>{% endfor %}
+  </select>
+  <button>{{ t('Search') }}</button>
+</form>
+{% if rows %}
+<table class="data">
+  <thead><tr><th>{{ t('Request no.') }}</th><th>{{ t('Workflow') }}</th><th>{{ t('Status') }}</th><th>{{ t('Waiting for') }}</th><th>{{ t('Started by') }}</th><th>{{ t('Last change') }}</th></tr></thead>
+  <tbody>{% for r in rows %}
+    <tr>
+      <td><a href="{{ url_for('request_detail', request_id=r.id) }}"><strong>{{ r.number }}</strong></a></td>
+      <td>{{ r.workflow }}</td>
+      <td>{% include "requests/_status.html" %}</td>
+      <td>{% if r.step %}{{ r.step }}<span class="hint">{{ r.waiting_for|join(', ') }}</span>{% endif %}</td>
+      <td>{{ r.starter_email }}</td>
+      <td>{{ local_time(r.updated_at) }}</td>
+    </tr>
+  {% endfor %}</tbody>
+</table>
+{% else %}<p class="empty">{{ t('No requests found.') }}</p>{% endif %}
+{% endblock %}

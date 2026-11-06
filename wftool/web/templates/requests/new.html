@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% import "macros/form.html" as form %}
+{% block title %}{{ title }}{% endblock %}
+{% block head %}<script src="{{ url_for('static', filename='form.js') }}" defer></script>{% endblock %}
+{% block content %}
+<p class="crumbs"><a href="{{ url_for('request_list') }}">{{ t('Requests') }}</a>{% if resubmit %} · <a href="{{ url_for('request_detail', request_id=resubmit.id) }}">{{ resubmit.number }}</a>{% endif %}</p>
+<h1>{{ title }}</h1>
+{% if resubmit %}
+  <p class="lead">{{ t('Change the request and send it again. All steps run once more; the earlier version is kept.') }}</p>
+  {% if reason %}<p class="flash flash-error">{{ t('Reason for the rejection:') }} {{ reason }}</p>{% endif %}
+{% else %}
+  <p class="lead">{{ t('Fields marked * are required. Sections appear when you tick their box.') }}</p>
+{% endif %}
+<form method="post" action="{{ action }}" class="request-form" novalidate>
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <div class="sheet">
+    {{ form.render(blocks, values, errors) }}
+  </div>
+  <div class="form-actions">
+    <button class="primary">{{ t('Send again') if resubmit else t('Send request') }}</button>
+    <a href="{{ url_for('request_detail', request_id=resubmit.id) if resubmit else url_for('request_list') }}">{{ t('Cancel') }}</a>
+  </div>
+</form>
+<datalist id="ad-users">{% for u in users %}<option value="{{ u.email }}">{{ u.display_name }}</option>{% endfor %}</datalist>
+{% endblock %}

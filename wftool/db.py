@@ -207,6 +207,17 @@ MIGRATIONS = [
     ALTER TABLE workflows ADD COLUMN start_groups TEXT NOT NULL DEFAULT '[]';
     ALTER TABLE imports ADD COLUMN fingerprint TEXT;
     """,
+    # 3: phase 4 – reminders, files of signatures and paper scans, lookups for links and the outbox.
+    """
+    ALTER TABLE tasks ADD COLUMN reminded_at TEXT;
+    ALTER TABLE tasks ADD COLUMN starter_noticed_at TEXT;
+    ALTER TABLE tasks ADD COLUMN signature_file TEXT;
+    ALTER TABLE tasks ADD COLUMN scan_file TEXT;
+    ALTER TABLE outbox ADD COLUMN attachment_name TEXT;
+    ALTER TABLE outbox ADD COLUMN kind TEXT;
+    CREATE INDEX links_task ON links(task_id);
+    CREATE INDEX outbox_due ON outbox(status, next_attempt_at);
+    """,
 ]
 
 

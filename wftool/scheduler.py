@@ -1,22 +1,28 @@
 """The single background thread (design: one scheduler in one app process).
 
-Phase 2 runs the CSV import every 5 minutes; files that did not change are
-skipped, so this is cheap. Phase 4 adds the outbox, reminders and expiry.
+Every 30 seconds it sends due emails from the outbox; every 5 minutes it also
+runs the CSV import (unchanged files are skipped) and the timers (expiry,
+reminder, notice to the starter). One process means nothing is sent twice.
 """
 
 import logging
 import threading
 
-from . import imports
+from . import imports, outbox, timers
 
 log = logging.getLogger("wftool.scheduler")
 
 
 class Scheduler:
-    def __init__(self, db, import_dir, *, interval_seconds=300):
+    def __init__(self, db, import_dir, *, engine=None, cipher=None, files=None, interval_seconds=300,
+                 outbox_seconds=30):
         self.db = db
         self.import_dir = import_dir
+        self.engine = engine
+        self.cipher = cipher
+        self.files = files
         self.interval = interval_seconds
+        self.outbox_interval = outbox_seconds
         self._stop = threading.Event()
         self._thread = None
 
@@ -29,14 +35,39 @@ class Scheduler:
         self._stop.set()
 
     def run_once(self):
+        """Imports and timers, then the outbox."""
         try:
             for r in imports.run_folder(self.db, self.import_dir):
                 if r["status"] != "unchanged":
                     log.info("import %s: %s %s", r["file"], r["status"], r["message"] or "")
         except Exception:  # never let one bad run stop the thread
             log.exception("import run failed")
+        if self.engine is not None:
+            try:
+                result = timers.run(self.db, self.engine)
+                if any(result.values()):
+                    log.info("timers: %s", result)
+            except Exception:
+                log.exception("timers failed")
+        self.send_mail()
+
+    def send_mail(self):
+        if self.cipher is None or self.files is None:
+            return
+        try:
+            result = outbox.send_due(self.db, self.cipher, self.files)
+            if result["sent"] or result["retry"] or result["failed"]:
+                log.info("outbox: %s", result)
+        except Exception:
+            log.exception("outbox failed")
 
     def _run(self):
+        elapsed = self.interval  # run everything at start
         while not self._stop.is_set():
-            self.run_once()
-            self._stop.wait(self.interval)
+            if elapsed >= self.interval:
+                self.run_once()
+                elapsed = 0
+            else:
+                self.send_mail()
+            self._stop.wait(self.outbox_interval)
+            elapsed += self.outbox_interval

@@ -1,0 +1,109 @@
+{# Request form fields. `blocks` comes from web/forms.layout(); values are the posted or saved values. #}
+{% macro control(item, name, value, error, id) -%}
+{%- set f = item.field -%}
+{%- if f.type == 'longtext' -%}
+<textarea id="{{ id }}" name="{{ name }}" rows="4" {% if f.max_length %}maxlength="{{ f.max_length }}"{% endif %}>{{ value or '' }}</textarea>
+{%- elif f.type == 'checkbox' -%}
+{# rendered by field() #}
+{%- elif f.type == 'dropdown' -%}
+<select id="{{ id }}" name="{{ name }}">
+  <option value="">{{ t('– please choose –') }}</option>
+  {% for v, label in item.choices %}<option value="{{ v }}" {% if value == v %}selected{% endif %}>{{ label }}</option>{% endfor %}
+</select>
+{%- elif f.type == 'multichoice' -%}
+{# rendered by field() #}
+{%- elif f.type == 'number' -%}
+<input id="{{ id }}" name="{{ name }}" type="text" inputmode="decimal" value="{{ value if value is not none else '' }}" {% if f.min is not none and f.min != '' %}data-min="{{ f.min }}"{% endif %}>
+{%- elif f.type == 'date' -%}
+<input id="{{ id }}" name="{{ name }}" type="date" value="{{ value or '' }}">
+{%- elif f.type == 'email' -%}
+<input id="{{ id }}" name="{{ name }}" type="email" value="{{ value or '' }}" autocomplete="off">
+{%- elif f.type == 'person' -%}
+<input id="{{ id }}" name="{{ name }}" type="text" list="ad-users" value="{{ value or '' }}" autocomplete="off" placeholder="{{ t('Name or email') }}">
+{%- elif f.type == 'secret' -%}
+<span class="secret-input"><input id="{{ id }}" name="{{ name }}" type="password" value="{{ value or '' }}" autocomplete="new-password" {% if f.max_length %}maxlength="{{ f.max_length }}"{% endif %}><button type="button" class="small" data-reveal="{{ id }}">{{ t('Show') }}</button></span>
+{%- else -%}
+<input id="{{ id }}" name="{{ name }}" type="text" value="{{ value or '' }}" {% if f.max_length %}maxlength="{{ f.max_length }}"{% endif %}>
+{%- endif -%}
+{%- endmacro %}
+
+{% macro field(item, name, value, error, id) -%}
+{%- set f = item.field -%}
+{%- if f.type == 'heading' -%}
+<h3 class="form-heading">{{ item.label }}</h3>
+{%- elif f.type == 'checkbox' -%}
+<div class="ff ff-check{% if error %} invalid{% endif %}">
+  <label class="check" for="{{ id }}"><input type="checkbox" id="{{ id }}" name="{{ name }}" value="on" {% if value is sameas true or value in ('on', 'true', '1') %}checked{% endif %}> {{ item.label }}{% if f.required %} <span class="ff-req" aria-hidden="true">*</span>{% endif %}</label>
+  {% if item.help %}<span class="hint">{{ item.help }}</span>{% endif %}
+  {% if error %}<span class="field-error">{{ error }}</span>{% endif %}
+</div>
+{%- elif f.type == 'multichoice' -%}
+<fieldset class="ff ff-multi{% if error %} invalid{% endif %}">
+  <legend>{{ item.label }}{% if f.required %} <span class="ff-req" aria-hidden="true">*</span>{% endif %}</legend>
+  {% for v, label in item.choices %}<label class="check"><input type="checkbox" name="{{ name }}" value="{{ v }}" {% if value and v in value %}checked{% endif %}> {{ label }}</label>{% endfor %}
+  {% if item.help %}<span class="hint">{{ item.help }}</span>{% endif %}
+  {% if error %}<span class="field-error">{{ error }}</span>{% endif %}
+</fieldset>
+{%- else -%}
+<div class="ff{% if error %} invalid{% endif %}">
+  <label for="{{ id }}">{{ item.label }}{% if f.required %} <span class="ff-req" aria-hidden="true">*</span><span class="visually-hidden"> ({{ t('required') }})</span>{% endif %}</label>
+  {{ control(item, name, value, error, id) }}
+  {% if item.help %}<span class="hint">{{ item.help }}</span>{% endif %}
+  {% if error %}<span class="field-error">{{ error }}</span>{% endif %}
+</div>
+{%- endif -%}
+{%- endmacro %}
+
+{% macro render(blocks, values, errors) -%}
+{% for b in blocks %}
+  {% if b.section %}
+    {% set s = b.section %}
+    <fieldset class="form-section{% if b.repeat %} repeat{% endif %}" data-section="{{ s.id }}" {% if s.show_when and b.fixed is none %}data-show-when="{{ s.show_when|tojson|forceescape }}"{% endif %}{% if b.fixed is sameas false %} hidden disabled{% endif %}>
+      <legend>{{ b.label }}</legend>
+      {% if errors.get(s.id) %}<p class="field-error">{{ errors.get(s.id) }}</p>{% endif %}
+      {% if b.repeat %}
+        <div class="rows" data-rows="{{ s.id }}" data-min="{{ b.repeat.min or 0 }}" data-max="{{ b.repeat.max or 50 }}">
+        {% for row in repeat_rows(s, values) %}
+          {% set n = loop.index0 %}
+          <div class="row-block" data-row>
+            <div class="row-head"><strong>{{ b.label }} <span data-row-no>{{ n + 1 }}</span></strong>
+              <button type="button" class="link" data-remove-row>{{ t('Remove') }}</button></div>
+            {% for item in b.fields %}
+              {{ field(item, 'r.' ~ s.id ~ '.' ~ n ~ '.' ~ item.field.id, row.get(item.field.id), errors.get(s.id ~ '[' ~ (n + 1) ~ '].' ~ item.field.id), 'f-' ~ s.id ~ '-' ~ n ~ '-' ~ item.field.id) }}
+            {% endfor %}
+          </div>
+        {% endfor %}
+        </div>
+        <template data-row-template="{{ s.id }}">
+          <div class="row-block" data-row>
+            <div class="row-head"><strong>{{ b.label }} <span data-row-no>__N1__</span></strong>
+              <button type="button" class="link" data-remove-row>{{ t('Remove') }}</button></div>
+            {% for item in b.fields %}
+              {{ field(item, 'r.' ~ s.id ~ '.__N__.' ~ item.field.id, none, none, 'f-' ~ s.id ~ '-__N__-' ~ item.field.id) }}
+            {% endfor %}
+          </div>
+        </template>
+        <button type="button" class="small" data-add-row="{{ s.id }}">+ {{ b.add_label or t('Add another') }}</button>
+        <span class="hint">{{ t('{min} to {max} times').format(min=b.repeat.min or 0, max=b.repeat.max or 50) }}</span>
+      {% else %}
+        {% for item in b.fields %}{{ field(item, 'f.' ~ item.field.id, values.get(item.field.id), errors.get(item.field.id), 'f-' ~ item.field.id) }}{% endfor %}
+      {% endif %}
+    </fieldset>
+  {% else %}
+    {{ field(b, 'f.' ~ b.field.id, values.get(b.field.id), errors.get(b.field.id), 'f-' ~ b.field.id) }}
+  {% endif %}
+{% endfor %}
+{%- endmacro %}
+
+{# Read-only view of a filled-in form (present.rows) #}
+{% macro view(blocks) -%}
+<dl class="view">
+{% for b in blocks %}
+  {% if b.kind == 'field' %}<div class="view-row"><dt>{{ b.label }}</dt><dd>{{ b.value }}</dd></div>
+  {% elif b.kind == 'heading' %}<div class="view-heading">{{ b.label }}</div>
+  {% elif b.kind == 'section' %}<div class="view-heading">{{ b.label }}</div>{% for i in b['items'] %}<div class="view-row"><dt>{{ i.label }}</dt><dd>{{ i.value }}</dd></div>{% endfor %}
+  {% elif b.kind == 'repeat' %}{% for row in b.rows %}<div class="view-heading">{{ b.label }} {{ loop.index }}</div>{% for i in row %}<div class="view-row"><dt>{{ i.label }}</dt><dd>{{ i.value }}</dd></div>{% endfor %}{% endfor %}
+  {% endif %}
+{% endfor %}
+</dl>
+{%- endmacro %}

@@ -1,0 +1,1 @@
+{% set st = r.status if r is defined else req.status %}<span class="stamp{% if st == 'returned' %} stamp-red{% elif st == 'cancelled' %} stamp-muted{% elif st == 'completed' %} stamp-ok{% endif %}">{{ name_of('STATUS_NAMES', st) }}</span>

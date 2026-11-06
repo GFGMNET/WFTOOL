@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}{{ t('Link no longer valid') }}{% endblock %}
+{% block content %}
+<div class="task-page">
+  {% if req %}<p class="task-kicker">{{ t('Request') }} {{ req.number }}</p>{% endif %}
+  <h1>{{ t('This link no longer works') }}</h1>
+  <p class="lead">
+  {% if reason == 'used' and task and task.decided_at %}
+    {{ t('Already decided by {who} on {when}: {decision}.').format(who=task.decided_by, when=local_time(task.decided_at), decision=name_of('DECISION_NAMES', task.decision)) }}
+  {% elif reason == 'used' %}{{ t('This link was already used.') }}
+  {% elif reason == 'expired' %}{{ t('The link has expired. Ask the person who started the request to send it again.') }}
+  {% elif reason == 'replaced' %}{{ t('This link was replaced by a newer email. Please use the link in the latest email.') }}
+  {% elif reason == 'closed' %}{{ t('This task is closed: the request was decided, rejected, reset or cancelled, someone else in your group already confirmed, or the task was given to another person.') }}
+  {% else %}{{ t('The link is not known. Check that it was copied completely.') }}{% endif %}
+  </p>
+  {% if req %}<p>{{ t('Questions?') }} {{ t('Contact the person who started the request:') }} <a href="mailto:{{ req.starter_email }}">{{ req.starter_email }}</a>{% if admin %} {{ t('or the admin:') }} <a href="mailto:{{ admin }}">{{ admin }}</a>{% endif %}.</p>
+  {% elif admin %}<p>{{ t('Questions?') }} {{ t('Contact the admin:') }} <a href="mailto:{{ admin }}">{{ admin }}</a>.</p>{% endif %}
+</div>
+{% endblock %}

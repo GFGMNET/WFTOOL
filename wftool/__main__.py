@@ -1,6 +1,6 @@
 """Command line: python -m wftool <command>
 
-  run [--host 0.0.0.0] [--port 8080]   start the app and the background scheduler
+  run [--host 0.0.0.0] [--port 8080]   start the app and the background scheduler (emails, reminders, import)
   import                               run the CSV import once and print the result
   init                                 create the database and the default admin (admin/admin)
 """
@@ -36,7 +36,8 @@ def main(argv=None):
                   f"deactivated={r['deactivated']} skipped_rows={len(r['rejected_rows'])} {r['message'] or ''}")
     elif args.command == "run":
         from .scheduler import Scheduler
-        Scheduler(ext["db"], app.config["IMPORT_DIR"]).start()
+        Scheduler(ext["db"], app.config["IMPORT_DIR"], engine=ext["engine"], cipher=ext["cipher"],
+                  files=ext["files"]).start()
         app.run(host=args.host, port=args.port, threaded=True, use_reloader=False)
 
 

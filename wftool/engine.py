@@ -47,10 +47,13 @@ class Actor:
 
 
 class Engine:
-    def __init__(self, db, cipher, notifier=None):
+    def __init__(self, db, cipher, notifier=None, files=None):
         self.db = db
         self.cipher = cipher
         self.notifier = notifier or Notifier()
+        self.files = files  # FileStore for signature images and paper scans (phase 4)
+        if hasattr(self.notifier, "bind"):
+            self.notifier.bind(self)
 
     # ------------------------------------------------------------------ read
 
@@ -247,12 +250,13 @@ class Engine:
 
     # --------------------------------------------------------------- decide
 
-    def decide(self, task_id, decision, actor, *, reason=None, values=None, signature_image=None):
+    def decide(self, task_id, decision, actor, *, reason=None, values=None, signature_image=None, link_id=None):
         """Record a decision on an open task by its assignee and move the request on.
 
         decision: submitted (fill), approved / rejected (approve types), signed / rejected / paper (sign),
         confirmed (confirm). A rejection needs a reason. A fill or fill_approve step's `values` are
         checked and saved as a new form version; a signed sign step needs `signature_image` (bytes).
+        `link_id` is the email link the decision came through; it is used up with the decision.
         """
         with self.db.tx():
             task = self.get_task(task_id)
@@ -260,6 +264,9 @@ class Engine:
             self._check_open(req, task)
             if actor.email != task["assignee_email"].lower():
                 raise StateError("This task belongs to someone else.")
+            if link_id is not None:
+                self.db.execute("UPDATE links SET used_at = ? WHERE id = ? AND task_id = ? AND used_at IS NULL",
+                                (clock.now_iso(), link_id, task_id))
             step = req["definition"]["steps"][task["step_index"]]
             if decision not in DECISIONS[task["type"]]:
                 raise StateError(f"'{decision}' is not possible for a {task['type']} step.")
@@ -288,6 +295,9 @@ class Engine:
 
             self._close_task(task, decision, actor, reason, form_version, form_fp, signature_fp)
             if signature_fp:
+                if self.files is not None:
+                    path = self.files.save("signatures", signature_image, ".png")
+                    self.db.execute("UPDATE tasks SET signature_file = ? WHERE id = ?", (path, task["id"]))
                 self._store_signature_value(req, step, actor, signature_fp, paper=False)
             return self._after_decision(req, task, step, decision, actor)
 
@@ -357,12 +367,18 @@ class Engine:
             scan_fp = hashlib.sha256(scan_bytes).hexdigest()
             signature_fp = fingerprint({"scan": scan_fp, "form": form_fp})
             self._close_task(task, "signed_paper", actor, None, form_version, form_fp, signature_fp)
+            if self.files is not None:
+                path = self.files.save("scans", scan_bytes)
+                self.db.execute("UPDATE tasks SET scan_file = ? WHERE id = ?", (path, task["id"]))
             self._event("task.paper_uploaded", req["id"], actor, {"task": task["id"], "scan_fingerprint": scan_fp})
             self._store_signature_value(req, step, actor, signature_fp, paper=True)
             return self._after_decision(req, task, step, "signed_paper", actor)
 
     def _close_task(self, task, decision, actor, reason, form_version, form_fp, signature_fp):
         now = clock.now_iso()
+        # A decided task's other links stop working (e.g. decided in the app instead of from the email).
+        self.db.execute("UPDATE links SET revoked_at = ?, revoke_reason = 'closed' WHERE task_id = ?"
+                        " AND used_at IS NULL AND revoked_at IS NULL", (now, task["id"]))
         self.db.execute(
             "UPDATE tasks SET status = 'done', decision = ?, reason = ?, form_version = ?, form_fingerprint = ?,"
             " decided_by = ?, decided_at = ?, ip = ?, user_agent = ?, signature_fingerprint = ? WHERE id = ?",
@@ -443,6 +459,41 @@ class Engine:
             raise StateError(f"Request {req['number']} is {req['status']}.")
         if task["status"] != "open" or task["round"] != req["round"]:
             raise StateError("This task is no longer open.")
+
+    def resend(self, task_id, actor, *, reason="resent"):
+        """Send an open task again with a new link; the old link stops working.
+
+        reason "resent": pressed by the starter or the admin. "reminder": sent by the
+        timer once per task. A task waiting for a paper scan reminds the starter instead.
+        """
+        with self.db.tx():
+            task = self.get_task(task_id)
+            req = self._request(task["request_id"])
+            if req["status"] != "open" or task["round"] != req["round"] or task["status"] not in ("open",
+                                                                                                    "paper_pending"):
+                raise StateError("This task is no longer open.")
+            if reason == "reminder":
+                self.db.execute("UPDATE tasks SET reminded_at = ? WHERE id = ?", (clock.now_iso(), task_id))
+            if task["status"] == "paper_pending":
+                self.notifier.paper_reminder(req, task)
+                self._event("task.paper_reminded", req["id"], actor, {"task": task_id, "step": task["step_id"]})
+                return self.get_request(req["id"])
+            self.notifier.task_resent(req, task, reason)
+            self._event("task.reminded" if reason == "reminder" else "task.resent", req["id"], actor,
+                        {"task": task_id, "step": task["step_id"], "to": task["assignee_email"]})
+        return self.get_request(req["id"])
+
+    def notify_starter_still_open(self, task_id, days):
+        """Timer: a task has been open for `days` working days; tell the starter once."""
+        with self.db.tx():
+            task = self.get_task(task_id)
+            req = self._request(task["request_id"])
+            if req["status"] != "open" or task["status"] != "open" or task["starter_noticed_at"]:
+                return
+            self.db.execute("UPDATE tasks SET starter_noticed_at = ? WHERE id = ?", (clock.now_iso(), task_id))
+            self.notifier.starter_notice(req, task, days)
+            self._event("task.starter_noticed", req["id"], None, {"task": task_id, "step": task["step_id"],
+                                                                   "days": days})
 
     # ------------------------------------------------- resubmit, cancel, reassign
 

@@ -110,3 +110,138 @@ def texts_for(step, lang="de"):
 def render(text, context):
     """Replace {name} with context[name]; unknown names stay as they are."""
     return _TOKEN.sub(lambda m: str(context[m.group(1)]) if m.group(1) in context else m.group(0), text)
+
+
+# --- emails the app sends on its own (to the starter and the admin) ---------
+# Placeholders: {request_no} {workflow} {step} {person} {decision} {reason} {url} {days}
+
+SYSTEM = {
+    "task_decided": {
+        "subject": {"de": "{workflow} {request_no}: {decision} ({step})",
+                    "en": "{workflow} {request_no}: {decision} ({step})"},
+        "body": {"de": "Guten Tag,\n\nim Antrag {request_no} ({workflow}) wurde der Schritt „{step}“ erledigt: "
+                       "{decision} von {person}.\n\nZum Antrag:\n{url}",
+                 "en": "Hello,\n\nin request {request_no} ({workflow}) the step \"{step}\" is done: "
+                       "{decision} by {person}.\n\nOpen the request:\n{url}"},
+    },
+    "request_returned": {
+        "subject": {"de": "Abgelehnt: {workflow} {request_no}", "en": "Rejected: {workflow} {request_no}"},
+        "body": {"de": "Guten Tag,\n\nIhr Antrag {request_no} ({workflow}) wurde im Schritt „{step}“ von {person} "
+                       "abgelehnt.\n\nBegründung: {reason}\n\nSie können den Antrag ändern und erneut senden; "
+                       "alle Schritte laufen dann noch einmal:\n{url}",
+                 "en": "Hello,\n\nyour request {request_no} ({workflow}) was rejected by {person} in the step "
+                       "\"{step}\".\n\nReason: {reason}\n\nYou can change the request and send it again; all steps "
+                       "then run once more:\n{url}"},
+    },
+    "request_completed": {
+        "subject": {"de": "Abgeschlossen: {workflow} {request_no}", "en": "Completed: {workflow} {request_no}"},
+        "body": {"de": "Guten Tag,\n\nIhr Antrag {request_no} ({workflow}) ist abgeschlossen; alle Schritte sind "
+                       "erledigt.\n\nZum Antrag:\n{url}",
+                 "en": "Hello,\n\nyour request {request_no} ({workflow}) is completed; all steps are done.\n\n"
+                       "Open the request:\n{url}"},
+    },
+    "request_cancelled": {
+        "subject": {"de": "Storniert: {workflow} {request_no}", "en": "Cancelled: {workflow} {request_no}"},
+        "body": {"de": "Guten Tag,\n\nder Antrag {request_no} ({workflow}) wurde storniert.\n\nBegründung: {reason}"
+                       "\n\nZum Antrag:\n{url}",
+                 "en": "Hello,\n\nrequest {request_no} ({workflow}) was cancelled.\n\nReason: {reason}\n\n"
+                       "Open the request:\n{url}"},
+    },
+    "paper_requested": {
+        "subject": {"de": "Unterschrift auf Papier: {workflow} {request_no}",
+                    "en": "Signature on paper: {workflow} {request_no}"},
+        "body": {"de": "Guten Tag,\n\n{person} unterschreibt den Antrag {request_no} ({workflow}) auf Papier.\n\n"
+                       "Bitte drucken Sie die Seite auf der Antragsseite aus, lassen Sie sie unterschreiben und laden "
+                       "Sie den Scan dort hoch:\n{url}",
+                 "en": "Hello,\n\n{person} will sign request {request_no} ({workflow}) on paper.\n\n"
+                       "Please print the page from the request page, have it signed, and upload the scan there:\n{url}"},
+    },
+    "task_expired": {
+        "subject": {"de": "Keine Antwort: {workflow} {request_no}", "en": "No response: {workflow} {request_no}"},
+        "body": {"de": "Guten Tag,\n\nder Link für den Schritt „{step}“ im Antrag {request_no} ({workflow}) ist "
+                       "abgelaufen, ohne dass {person} geantwortet hat. Der Antrag wartet.\n\nAuf der Antragsseite "
+                       "können Sie den Link erneut senden; der Admin kann die Aufgabe einer anderen Person "
+                       "zuweisen:\n{url}",
+                 "en": "Hello,\n\nthe link for the step \"{step}\" in request {request_no} ({workflow}) expired "
+                       "without a response from {person}. The request is waiting.\n\nOn the request page you can "
+                       "send the link again; the admin can give the task to someone else:\n{url}"},
+    },
+    "starter_notice": {
+        "subject": {"de": "Noch offen: {workflow} {request_no}", "en": "Still open: {workflow} {request_no}"},
+        "body": {"de": "Guten Tag,\n\nder Schritt „{step}“ im Antrag {request_no} ({workflow}) ist seit {days} "
+                       "Arbeitstagen offen ({person}).\n\nAuf der Antragsseite können Sie den Link erneut senden:\n{url}",
+                 "en": "Hello,\n\nthe step \"{step}\" in request {request_no} ({workflow}) has been open for {days} "
+                       "working days ({person}).\n\nOn the request page you can send the link again:\n{url}"},
+    },
+    "paper_reminder": {
+        "subject": {"de": "Erinnerung – Scan fehlt: {workflow} {request_no}",
+                    "en": "Reminder – scan missing: {workflow} {request_no}"},
+        "body": {"de": "Guten Tag,\n\nfür den Antrag {request_no} ({workflow}) fehlt noch der Scan der "
+                       "Unterschrift von {person}. Bitte laden Sie ihn auf der Antragsseite hoch:\n{url}",
+                 "en": "Hello,\n\nthe scan of the signature of {person} for request {request_no} ({workflow}) is "
+                       "still missing. Please upload it on the request page:\n{url}"},
+    },
+}
+
+REMINDER_PREFIX = {"de": "Erinnerung: ", "en": "Reminder: "}
+BUTTON = {"task": {"de": "Aufgabe öffnen", "en": "Open the task"},
+          "request": {"de": "Antrag öffnen", "en": "Open the request"}}
+FOOTER = {"de": "Diese E-Mail wurde von WFTOOL automatisch versendet.",
+          "en": "This email was sent automatically by WFTOOL."}
+DETAILS = {"de": "Angaben im Antrag", "en": "Details of the request"}
+
+
+def system_texts(kind, lang, context):
+    texts = SYSTEM[kind]
+    return render(texts["subject"][lang], context), render(texts["body"][lang], context)
+
+
+_URL = re.compile(r"(https?://[^\s<]+)")
+
+
+def html_email(lang, body_text, *, button=None, details=None, title=None):
+    """A small HTML email that works in Outlook: one column, inline styles, a button for the link.
+
+    `body_text` is the rendered plain text; it is escaped, links become clickable.
+    `button` is (url, label); `details` a list of (label, value) shown as a table.
+    """
+    import html as _html
+
+    def para(block):
+        safe = _html.escape(block)
+        safe = _URL.sub(lambda m: f'<a href="{m.group(1)}" style="color:#2B4C9B;word-break:break-all">'
+                                  f'{m.group(1)}</a>', safe)
+        return f'<p style="margin:0 0 14px">{safe.replace(chr(10), "<br>")}</p>'
+
+    paragraphs = "".join(para(b) for b in body_text.split("\n\n") if b.strip())
+    parts = [
+        '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">',
+        f"<title>{_html.escape(title or '')}</title></head>",
+        '<body style="margin:0;padding:0;background:#F2F4F7">',
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F2F4F7">'
+        '<tr><td align="center" style="padding:24px 12px">',
+        '<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;'
+        'background:#FFFFFF;border:1px solid #D3D9E2;border-top:4px solid #2B4C9B">',
+        '<tr><td style="padding:24px 28px;font-family:Segoe UI,Arial,sans-serif;font-size:15px;line-height:1.5;'
+        'color:#1D2633">',
+        paragraphs,
+    ]
+    if button:
+        url, label = button
+        parts.append(
+            '<table role="presentation" cellpadding="0" cellspacing="0" style="margin:6px 0 18px"><tr>'
+            f'<td style="background:#2B4C9B;border-radius:4px"><a href="{_html.escape(url)}" '
+            'style="display:inline-block;padding:11px 22px;font-family:Segoe UI,Arial,sans-serif;font-size:15px;'
+            f'font-weight:bold;color:#FFFFFF;text-decoration:none">{_html.escape(label)}</a></td></tr></table>')
+    if details:
+        rows = "".join(
+            f'<tr><td style="padding:5px 12px 5px 0;color:#55606F;vertical-align:top;border-bottom:1px solid #E6EAF0">'
+            f'{_html.escape(k)}</td><td style="padding:5px 0;vertical-align:top;border-bottom:1px solid #E6EAF0">'
+            f'{_html.escape(v)}</td></tr>' for k, v in details)
+        parts.append(f'<p style="margin:18px 0 6px;font-weight:bold">{_html.escape(DETAILS[lang])}</p>'
+                     f'<table role="presentation" cellpadding="0" cellspacing="0" style="font-size:14px;width:100%">'
+                     f'{rows}</table>')
+    parts.append('</td></tr><tr><td style="padding:12px 28px;font-family:Segoe UI,Arial,sans-serif;font-size:12px;'
+                 f'color:#55606F;border-top:1px solid #D3D9E2">{_html.escape(FOOTER[lang])}</td></tr>')
+    parts.append("</table></td></tr></table></body></html>")
+    return "".join(parts)

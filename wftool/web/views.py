@@ -42,8 +42,9 @@ def register(app):
     def _forbidden(_):
         return render_template("error.html", message=t("You don't have access to this page.")), 403
 
-    from . import builder
-    for rule, view, methods in ROUTES + builder.ROUTES:
+    from . import builder, requests as request_pages
+    request_pages.register(app)
+    for rule, view, methods in ROUTES + builder.ROUTES + request_pages.ROUTES:
         app.add_url_rule(rule, view.__name__, view, methods=methods)
 
 
@@ -199,7 +200,31 @@ def home():
         admin = db.one("SELECT password_hash FROM accounts WHERE username = 'admin' AND active = 1")
         from werkzeug.security import check_password_hash
         attention["default_admin"] = bool(admin and check_password_hash(admin["password_hash"], "admin"))
-    return render_template("home.html", startable=workflows.startable_workflows(db, g.user), attention=attention)
+        attention["failed_mail"] = db.one("SELECT COUNT(*) AS n FROM outbox WHERE status = 'failed'")["n"]
+        attention["inactive_tasks"] = db.one(
+            "SELECT COUNT(*) AS n FROM tasks t JOIN requests r ON r.id = t.request_id AND r.round = t.round"
+            " LEFT JOIN ad_users u ON u.email = t.assignee_email WHERE t.status = 'open' AND r.status = 'open'"
+            " AND (u.active IS NULL OR u.active = 0)")["n"]
+    from .requests import _startable
+    email = (g.user.get("email") or "").lower()
+    my_tasks, recent = [], []
+    if email:
+        for row in db.all("SELECT t.*, r.number, r.round AS req_round, r.workflow_version_id FROM tasks t"
+                          " JOIN requests r ON r.id = t.request_id WHERE t.assignee_email = ? AND t.status = 'open'"
+                          " AND r.status = 'open' AND t.round = r.round ORDER BY t.created_at", (email,)):
+            task = dict(row)
+            definition = workflows.get_version(db, task["workflow_version_id"])["definition"]
+            step = definition["steps"][task["step_index"]]
+            task["step_label"] = _label_of(step.get("label")) or step["id"]
+            task["workflow"] = _label_of(definition.get("label")) or definition["name"]
+            my_tasks.append(task)
+        for row in db.all("SELECT * FROM requests WHERE starter_email = ? ORDER BY id DESC LIMIT 5", (email,)):
+            r = dict(row)
+            definition = workflows.get_version(db, r["workflow_version_id"])["definition"]
+            r["workflow"] = _label_of(definition.get("label")) or definition["name"]
+            recent.append(r)
+    return render_template("home.html", startable=_startable(), attention=attention, my_tasks=my_tasks,
+                           recent=recent)
 
 
 # --- accounts -----------------------------------------------------------

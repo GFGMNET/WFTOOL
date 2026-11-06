@@ -1,5 +1,5 @@
 from wftool import audit
-from wftool.db import Database
+from wftool.db import MIGRATIONS, Database
 
 from conftest import PNG, actor
 
@@ -7,11 +7,11 @@ from conftest import PNG, actor
 def test_migrations_create_schema_once(tmp_path):
     path = tmp_path / "x.db"
     db = Database(path)
-    assert db.schema_version() == 2
+    assert db.schema_version() == len(MIGRATIONS)
     assert db.one("PRAGMA journal_mode")[0] == "wal"
     db.close()
     db = Database(path)  # second start: nothing re-applied, no error
-    assert db.schema_version() == 2
+    assert db.schema_version() == len(MIGRATIONS)
     tables = {r["name"] for r in db.all("SELECT name FROM sqlite_master WHERE type = 'table'")}
     for t in ("accounts", "ad_users", "groups", "group_members", "lists", "list_items", "workflows",
               "workflow_versions", "requests", "form_versions", "tasks", "links", "events", "outbox",

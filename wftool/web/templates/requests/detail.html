@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% import "macros/form.html" as form %}
+{% block title %}{{ req.number }} · {{ title }}{% endblock %}
+{% block content %}
+<p class="crumbs"><a href="{{ url_for('request_list') }}">{{ t('Requests') }}</a></p>
+<div class="builder-title">
+  <h1>{{ title }} {{ req.number }}</h1>
+  <p class="builder-status">{% include "requests/_status.html" %} <span class="hint">{{ t('Version') }} {{ req.workflow_version }} · {{ t('Started by') }} {{ person_name(req.starter_email) }} · {{ local_time(req.created_at) }}</span></p>
+</div>
+
+<div class="toolbar">
+  {% if req.status == 'returned' and is_starter %}<a class="button-like primary-like" href="{{ url_for('request_resubmit', request_id=req.id) }}">{{ t('Change and send again') }}</a>{% endif %}
+  <a class="button-like" href="{{ url_for('request_pdf', request_id=req.id) }}">{{ t('PDF') }}</a>
+</div>
+
+<div class="detail">
+  <section class="detail-main">
+    <h2>{{ t('Steps') }}</h2>
+    <ol class="timeline">
+      <li class="tl-item tl-done"><span class="tl-dot" aria-hidden="true"></span>
+        <div><strong>{{ t('Start') }}</strong> <span class="hint">{{ person_name(req.starter_email) }} · {{ local_time(req.created_at) }}</span></div></li>
+      {% for s in steps %}
+      <li class="tl-item tl-{{ s.state }}"><span class="tl-dot" aria-hidden="true"></span>
+        <div class="tl-body">
+          <div><strong>{{ s.index + 1 }}. {{ s.label }}</strong>
+            <span class="badge">{{ name_of('STEP_TYPE_NAMES', s.step.type) }}</span>
+            {% if s.state == 'skipped' %}<span class="stamp stamp-muted">{{ t('skipped') }}</span>{% elif s.state == 'sent' %}<span class="stamp stamp-muted">{{ t('sent') }}</span>{% elif s.state == 'waiting' %}<span class="hint">{{ t('not yet') }}</span>{% endif %}</div>
+          {% for task in s.tasks %}
+          <div class="tl-task">
+            <div>{{ person_name(task.assignee_email) }} <span class="hint">{{ task.assignee_email }}{% if task.item_value %} · {{ task.item_value }}{% endif %}{% if task.group_name %} · {{ t('group') }} {{ task.group_name }}{% endif %}</span></div>
+            {% if task.status == 'done' %}
+              <div><span class="stamp{% if task.decision == 'rejected' %} stamp-red{% else %} stamp-ok{% endif %}">{{ name_of('DECISION_NAMES', task.decision) }}</span>
+                <span class="hint">{{ local_time(task.decided_at) }}{% if task.ip %} · {{ task.ip }}{% endif %}{% if task.decided_by and task.decided_by != task.assignee_email %} · {{ task.decided_by }}{% endif %}</span></div>
+              {% if task.reason %}<div class="reason">{{ t('Reason') }}: {{ task.reason }}</div>{% endif %}
+            {% elif task.status == 'cancelled' %}
+              <div><span class="stamp stamp-muted">{{ t('cancelled') }}</span> <span class="hint">{{ task.cancel_reason }}</span></div>
+            {% elif task.status == 'paper_pending' %}
+              <div><span class="stamp stamp-amber">{{ t('Waiting for the signed scan') }}</span></div>
+              {% if can_act %}<div class="row-form">
+                <a class="button-like" href="{{ url_for('task_print', request_id=req.id, task_id=task.id) }}">{{ t('Print page for signing') }}</a></div>{% endif %}
+              {% if is_starter %}
+              <form method="post" action="{{ url_for('task_scan', request_id=req.id, task_id=task.id) }}" enctype="multipart/form-data" class="form scan-form">
+                <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                <label>{{ t('Signed scan (PDF, JPG or PNG, max. 20 MB)') }}<input type="file" name="scan" accept=".pdf,.jpg,.jpeg,.png" required></label>
+                <label>{{ t('Request number printed on the page') }}<input name="number" required placeholder="{{ req.number }}" autocomplete="off"></label>
+                <button class="primary">{{ t('Upload scan') }}</button>
+              </form>
+              {% endif %}
+            {% else %}
+              <div><span class="stamp stamp-amber">{{ t('Open') }}</span> <span class="hint">{{ t('since') }} {{ local_time(task.created_at) }}{% if task.reminded_at %} · {{ t('reminded') }} {{ local_time(task.reminded_at) }}{% endif %}</span></div>
+              {% if can_act %}
+              <div class="row-form task-actions">
+                <form method="post" action="{{ url_for('request_action', request_id=req.id) }}" class="inline"><input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="task_id" value="{{ task.id }}">
+                  <button name="action" value="resend" class="small">{{ t('Send link again') }}</button></form>
+                {% if task.type == 'sign' and is_starter and s.step.allow_paper is not sameas false %}
+                <form method="post" action="{{ url_for('request_action', request_id=req.id) }}" class="inline"><input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="task_id" value="{{ task.id }}">
+                  <button name="action" value="paper" class="small" data-confirm="{{ t('Switch this signature to paper? The email link stops working.') }}">{{ t('Sign on paper instead') }}</button></form>
+                {% endif %}
+              </div>
+              {% endif %}
+              {% if is_admin %}
+              <details class="sub"><summary>{{ t('Reassign') }}</summary>
+                <form method="post" action="{{ url_for('request_action', request_id=req.id) }}" class="row-form">
+                  <input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="task_id" value="{{ task.id }}"><input type="hidden" name="action" value="reassign">
+                  <input name="email" list="ad-users" required placeholder="{{ t('New person (email)') }}" aria-label="{{ t('New person (email)') }}">
+                  <input name="reason" required placeholder="{{ t('Reason, e.g. absence') }}" aria-label="{{ t('Reason') }}">
+                  <button class="small">{{ t('Reassign') }}</button>
+                </form></details>
+              {% endif %}
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </li>
+      {% endfor %}
+      <li class="tl-item tl-{{ 'done' if req.status == 'completed' else 'waiting' }}"><span class="tl-dot" aria-hidden="true"></span>
+        <div><strong>{{ t('Completed') if req.status == 'completed' else t('End') }}</strong>{% if req.closed_at %} <span class="hint">{{ local_time(req.closed_at) }}</span>{% endif %}</div></li>
+    </ol>
+
+    {% if req.status in ('open', 'returned') and can_act %}
+    <details class="sub cancel-box"><summary>{{ t('Cancel the request') }}</summary>
+      <form method="post" action="{{ url_for('request_action', request_id=req.id) }}" class="row-form">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="action" value="cancel">
+        <input name="reason" required placeholder="{{ t('Reason') }}" aria-label="{{ t('Reason') }}">
+        <button class="small danger" data-confirm="{{ t('Cancel this request? All open links stop working.') }}">{{ t('Cancel request') }}</button>
+      </form></details>
+    {% endif %}
+
+    {% if earlier %}
+    <details class="sub"><summary>{{ t('Earlier rounds') }} ({{ earlier|length }})</summary>
+      <table class="data"><thead><tr><th>{{ t('Round') }}</th><th>{{ t('Step') }}</th><th>{{ t('Person') }}</th><th>{{ t('Decision') }}</th><th>{{ t('Time') }}</th></tr></thead>
+      <tbody>{% for task in earlier %}<tr><td>{{ task.round }}</td><td>{{ task.step_index + 1 }}</td><td>{{ task.assignee_email }}</td><td>{{ name_of('DECISION_NAMES', task.decision) if task.decision else name_of('STATUS_NAMES', task.status) }}{% if task.reason %}: {{ task.reason }}{% endif %}</td><td>{{ local_time(task.decided_at or task.created_at) }}</td></tr>{% endfor %}</tbody></table>
+    </details>
+    {% endif %}
+  </section>
+
+  <section class="detail-side">
+    <h2>{{ t('Details') }}</h2>
+    <div class="sheet">{{ form.view(blocks) }}</div>
+    {% if has_secrets and can_act and not show %}
+    <form method="post" class="row-form"><input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <button name="action" value="show_secrets" class="small">{{ t('Show secret values') }}</button>
+      <span class="hint">{{ t('Viewing is logged.') }}</span></form>
+    {% endif %}
+  </section>
+</div>
+
+<details class="versions"><summary>{{ t('History') }} ({{ history|length }})</summary>
+  <table class="data"><thead><tr><th>{{ t('Time') }}</th><th>{{ t('Event') }}</th><th>{{ t('Who') }}</th><th>{{ t('IP') }}</th></tr></thead>
+  <tbody>{% for e in history %}<tr><td>{{ local_time(e.ts) }}</td><td><code>{{ e.type }}</code>{% if e.data.step %} · {{ e.data.step }}{% endif %}{% if e.data.to and e.data.to is string %} → {{ e.data.to }}{% endif %}</td><td>{{ e.actor or '' }}</td><td>{{ e.ip or '' }}</td></tr>{% endfor %}</tbody></table>
+</details>
+<datalist id="ad-users">{% for u in users %}<option value="{{ u.email }}">{{ u.display_name }}</option>{% endfor %}</datalist>
+{% endblock %}

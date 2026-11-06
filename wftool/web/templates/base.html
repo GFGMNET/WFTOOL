@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{% endblock %} · WFTOOL</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
   {% block head %}{% endblock %}
 </head>
 <body>
@@ -29,9 +30,10 @@
   {% if g.user and not g.user.must_change_password %}
   <nav class="sidenav" aria-label="{{ t('Administration') }}">
     <a href="{{ url_for('home') }}" {% if request.endpoint == 'home' %}aria-current="page"{% endif %}>{{ t('Home') }}</a>
+    <a href="{{ url_for('request_list') }}" {% if request.endpoint and request.endpoint.startswith('request_') %}aria-current="page"{% endif %}>{{ t('Requests') }}</a>
     {% if g.user.role == 'admin' %}
       <p class="sidenav-group">{{ t('Administration') }}</p>
-      {% for ep, label in [('admin_workflow', 'Workflows'), ('admin_start_groups', 'Who may start'), ('admin_lists', 'Lists'), ('admin_people', 'People and groups'), ('admin_imports', 'Imports'), ('admin_accounts', 'Accounts'), ('admin_settings', 'Settings')] %}
+      {% for ep, label in [('admin_workflow', 'Workflows'), ('admin_tasks', 'Open tasks'), ('admin_start_groups', 'Who may start'), ('admin_lists', 'Lists'), ('admin_people', 'People and groups'), ('admin_imports', 'Imports'), ('admin_accounts', 'Accounts'), ('admin_outbox', 'Outbox'), ('admin_settings', 'Settings')] %}
         <a href="{{ url_for('admin_workflows' if ep == 'admin_workflow' else ep) }}" {% if request.endpoint and request.endpoint.startswith(ep) %}aria-current="page"{% endif %}>{{ t(label) }}</a>
       {% endfor %}
     {% endif %}

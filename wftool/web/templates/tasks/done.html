@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}{{ t('Thank you') }}{% endblock %}
+{% block content %}
+<div class="task-page">
+  <p class="task-kicker">{{ t('Request') }} {{ req.number }} · {{ step_label }}</p>
+  <h1>{{ t('Thank you') }}</h1>
+  {% if task.status == 'paper_pending' %}
+    <p class="done-line"><span class="stamp stamp-amber">{{ t('Signature on paper') }}</span></p>
+    <p>{{ t('The person who started the request will print the page for you to sign. This link no longer works.') }}</p>
+  {% else %}
+    <p class="done-line"><span class="stamp {% if task.decision == 'rejected' %}stamp-red{% else %}stamp-ok{% endif %}">{{ name_of('DECISION_NAMES', task.decision) }}</span>
+      {{ local_time(task.decided_at) }} · {{ task.decided_by }}</p>
+    <p>{{ t('Your decision is recorded and can no longer be changed. You can close this page.') }}</p>
+    {% if task.signature_fingerprint %}<p class="hint">{{ t('Fingerprint of the signature:') }} <code>{{ task.signature_fingerprint[:16] }}…</code></p>{% endif %}
+  {% endif %}
+  {% if via == 'app' %}<p><a href="{{ url_for('home') }}">{{ t('Back to the start page') }}</a></p>{% endif %}
+</div>
+{% endblock %}

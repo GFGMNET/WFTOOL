@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}{{ t('Open tasks') }}{% endblock %}
+{% block content %}
+<h1>{{ t('Open tasks') }}</h1>
+<p class="lead">{{ t('Every open task of open requests. Tasks of people who are no longer active in AD must be given to someone else.') }}</p>
+<p><a href="{{ url_for('admin_tasks', inactive='0' if only_inactive else '1') }}">{{ t('Show all') if only_inactive else t('Only inactive people') }}</a></p>
+{% if rows %}
+<table class="data">
+  <thead><tr><th>{{ t('Request') }}</th><th>{{ t('Step') }}</th><th>{{ t('Person') }}</th><th>{{ t('Since') }}</th><th>{{ t('Reassign') }}</th></tr></thead>
+  <tbody>{% for r in rows %}
+    <tr {% if r.inactive %}class="row-alert"{% endif %}>
+      <td><a href="{{ url_for('request_detail', request_id=r.request_id) }}"><strong>{{ r.number }}</strong></a></td>
+      <td>{{ r.step_index + 1 }} · {{ name_of('STEP_TYPE_NAMES', r.type) }}{% if r.item_value %}<span class="hint">{{ r.item_value }}</span>{% endif %}</td>
+      <td>{{ r.display_name or r.assignee_email }}<span class="hint">{{ r.assignee_email }}</span>{% if r.inactive %} <span class="stamp stamp-red">{{ t('inactive') }}</span>{% endif %}{% if r.status == 'paper_pending' %} <span class="stamp stamp-amber">{{ t('paper') }}</span>{% endif %}</td>
+      <td>{{ local_time(r.created_at) }}</td>
+      <td>{% if r.status == 'open' %}<form method="post" action="{{ url_for('request_action', request_id=r.request_id) }}" class="row-form">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="task_id" value="{{ r.id }}"><input type="hidden" name="action" value="reassign">
+        <input name="email" list="ad-users" required placeholder="{{ t('New person (email)') }}" aria-label="{{ t('New person (email)') }}">
+        <input name="reason" required placeholder="{{ t('Reason') }}" aria-label="{{ t('Reason') }}">
+        <button class="small">{{ t('Reassign') }}</button></form>{% endif %}</td>
+    </tr>
+  {% endfor %}</tbody>
+</table>
+{% else %}<p class="empty">{{ t('No open tasks.') }}</p>{% endif %}
+<datalist id="ad-users">{% for u in users %}<option value="{{ u.email }}">{{ u.display_name }}</option>{% endfor %}</datalist>
+{% endblock %}

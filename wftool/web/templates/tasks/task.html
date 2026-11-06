@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% import "macros/form.html" as form %}
+{% block title %}{{ step_label }} · {{ req.number }}{% endblock %}
+{% block head %}<script src="{{ url_for('static', filename='form.js') }}" defer></script>{% if task.type == 'sign' %}<script src="{{ url_for('static', filename='sign.js') }}" defer></script>{% endif %}{% endblock %}
+{% block content %}
+<div class="task-page">
+  <p class="task-kicker">{{ title }} · {{ t('Request') }} {{ req.number }}</p>
+  <h1>{{ step_label }}{% if item %}: {{ item }}{% endif %}</h1>
+  <p class="lead">
+    {% if task.type == 'approve' or task.type == 'approve_per_item' %}{{ t('Please check the request and approve it, or reject it with a reason.') }}
+    {% elif task.type == 'fill_approve' %}{{ t('Please fill in the fields below and approve, or reject with a reason.') }}
+    {% elif task.type == 'fill' %}{{ t('Please fill in the fields below and send them.') }}
+    {% elif task.type == 'sign' %}{{ t('Please check the details and sign in the box at the bottom.') }}
+    {% elif task.type == 'confirm' %}{{ t('Please confirm to continue the request.') }}{% endif %}
+    <span class="hint">{{ t('Started by') }} {{ person_name(req.starter_email) }} · {{ local_time(req.created_at) }} · {{ t('for') }} {{ email }}</span>
+  </p>
+
+  <section class="sheet">
+    <h2 class="sheet-title">{{ t('Details') }}</h2>
+    {{ form.view(blocks_view) }}
+  </section>
+
+  <form method="post" class="task-form" novalidate id="task-form">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    {% if blocks %}
+    <section class="sheet">
+      <h2 class="sheet-title">{{ t('Your entries') }}</h2>
+      {{ form.render(blocks, values, errors) }}
+    </section>
+    {% endif %}
+
+    {% if task.type == 'sign' %}
+    <section class="sheet sign-box">
+      <h2 class="sheet-title">{{ t('Signature') }}</h2>
+      <p class="hint">{{ t('Sign with the mouse, a finger or a pen. The signature, the date and a fingerprint of exactly this document are stored.') }}</p>
+      <div class="pad-wrap"><canvas id="pad" class="pad" width="600" height="200" aria-label="{{ t('Signature box') }}"></canvas></div>
+      <input type="hidden" name="signature" id="signature">
+      <div class="row-form"><button type="button" class="small" id="pad-clear">{{ t('Clear') }}</button>
+        {% if signature_error %}<span class="field-error" id="pad-error">{{ signature_error }}</span>{% else %}<span class="field-error" id="pad-error" hidden>{{ t('Please sign in the box first.') }}</span>{% endif %}</div>
+    </section>
+    {% endif %}
+
+    <div class="decide">
+      {% if task.type == 'fill' %}<button class="primary" name="action" value="submit">{{ t('Send') }}</button>
+      {% elif task.type in ('approve', 'approve_per_item', 'fill_approve') %}<button class="primary approve" name="action" value="approve">{{ t('Approve') }}</button>
+      {% elif task.type == 'sign' %}<button class="primary" name="action" value="sign" data-sign>{{ t('Sign') }}</button>
+      {% elif task.type == 'confirm' %}<button class="primary" name="action" value="confirm">{{ step_label }}</button>{% endif %}
+    </div>
+
+    {% if task.type in ('approve', 'approve_per_item', 'fill_approve', 'sign') %}
+    <details class="reject-box" {% if errors.reason %}open{% endif %}>
+      <summary>{{ t('Reject') if task.type != 'sign' else t('Something is wrong – send back') }}</summary>
+      <div class="ff{% if errors.reason %} invalid{% endif %}">
+        <label for="reason">{{ t('Reason') }} <span class="ff-req" aria-hidden="true">*</span></label>
+        <textarea id="reason" name="reason" rows="3">{{ request.form.get('reason', '') }}</textarea>
+        {% if errors.reason %}<span class="field-error">{{ errors.reason }}</span>{% endif %}
+      </div>
+      <button class="danger" name="action" value="reject" data-reject>{{ t('Reject with this reason') }}</button>
+    </details>
+    {% endif %}
+    {% if allow_paper %}
+    <details class="reject-box">
+      <summary>{{ t('Sign on paper instead') }}</summary>
+      <p class="hint">{{ t('The person who started the request prints the page, you sign it by hand, and they upload the scan. This link then stops working.') }}</p>
+      <button name="action" value="paper">{{ t('Sign on paper') }}</button>
+    </details>
+    {% endif %}
+  </form>
+  <p class="hint privacy">{{ t('When you press a button, your email address, the date and time, your IP address and your browser are recorded with the decision.') }}</p>
+</div>
+{% if users %}<datalist id="ad-users">{% for u in users %}<option value="{{ u.email }}">{{ u.display_name }}</option>{% endfor %}</datalist>{% endif %}
+{% endblock %}

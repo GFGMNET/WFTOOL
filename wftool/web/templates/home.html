@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ t('Home') }}{% endblock %}
 {% block content %}
-{% if attention and (attention.missing or attention.rejected_imports or attention.default_admin) %}
+{% if attention and (attention.missing or attention.rejected_imports or attention.default_admin or attention.failed_mail or attention.inactive_tasks) %}
 <section class="attention">
   <h2>{{ t('Needs attention') }}</h2>
   <ul>
@@ -13,17 +13,32 @@
     {% for r in attention.rejected_imports %}
       <li>{{ t('The last import was rejected:') }} <a href="{{ url_for('admin_imports') }}">{{ r.file_name }}</a> – {{ r.message }}</li>
     {% endfor %}
+    {% if attention.failed_mail %}<li><a href="{{ url_for('admin_outbox', status='failed') }}">{{ t('{n} email(s) could not be sent.').format(n=attention.failed_mail) }}</a></li>{% endif %}
+    {% if attention.inactive_tasks %}<li><a href="{{ url_for('admin_tasks', inactive='1') }}">{{ t('{n} open task(s) belong to people who are no longer active.').format(n=attention.inactive_tasks) }}</a></li>{% endif %}
   </ul>
 </section>
 {% endif %}
 
-<h1>{{ t('Start a request') }}</h1>
+{% if my_tasks %}
+<h1>{{ t('Your tasks') }}</h1>
+<ul class="plain">
+  {% for task in my_tasks %}<li class="start-item"><a href="{{ url_for('task_app', task_id=task.id) }}">{{ task.number }} · {{ task.step_label }}</a> <span class="hint">{{ task.workflow }} · {{ t('since') }} {{ local_time(task.created_at) }}</span></li>{% endfor %}
+</ul>
+{% endif %}
+
+<h1 {% if my_tasks %}class="spaced"{% endif %}>{{ t('Start a request') }}</h1>
 {% if startable %}
   <ul class="plain">
-    {% for name in startable %}<li class="start-item">{{ name }}</li>{% endfor %}
+    {% for w in startable %}<li class="start-item"><a href="{{ url_for('request_new', workflow_id=w.id) }}">{{ w.label }}</a></li>{% endfor %}
   </ul>
-  <p class="hint">{{ t('Starting requests follows in the next build phase.') }}</p>
 {% else %}
   <p class="empty">{{ t('No workflow is open to you yet. An admin sets who may start each workflow.') }}</p>
+{% endif %}
+{% if recent %}
+<h2>{{ t('Your recent requests') }}</h2>
+<table class="data">
+  <tbody>{% for r in recent %}<tr><td><a href="{{ url_for('request_detail', request_id=r.id) }}"><strong>{{ r.number }}</strong></a></td><td>{{ r.workflow }}</td><td>{% include "requests/_status.html" %}</td><td>{{ local_time(r.updated_at) }}</td></tr>{% endfor %}</tbody>
+</table>
+<p><a href="{{ url_for('request_list') }}">{{ t('All requests') }}</a></p>
 {% endif %}
 {% endblock %}

@@ -12,8 +12,8 @@ Licence: MIT. Design: see the design document v2 (Workflow Builder).
 | --- | --- | --- |
 | 1. Engine | Database, workflow definitions and versions, requests, steps, decisions, audit chain | **done** |
 | 2. Master data and admin | CSV import (AD users, groups, software), lists, settings, accounts | **done** |
-| 3. Builder | Form designer with sections, workflow builder, publish checks, export/import | **done, waiting for review** |
-| 4. Requests and email links | Pages, single-use links, outbox, reminders, signature upload | planned |
+| 3. Builder | Form designer with sections, workflow builder, publish checks, export/import | **done** |
+| 4. Requests and email links | Request pages, single-use links, HTML emails, outbox, reminders, signatures | **done, waiting for review** |
 | 5. Audit and reports | Tamper check page, daily anchor email, PDF and CSV reports | planned |
 | 6. Examples and setup | Docker setup, end-to-end tests | planned |
 
@@ -74,6 +74,53 @@ approval and sign steps can use `reject`; paper signatures never expire.
 `{"field": "...", "op": "...", "value": ...}` with `equals`, `not_equals`,
 `contains`, `not_contains`, `is_set`, `is_empty`, `any_needs_approval`.
 A step whose condition is false is skipped and logged.
+
+## Phase 4: requests, email links and emails
+
+Decisions for this phase: [docs/phase4-brief.md](docs/phase4-brief.md).
+
+- **Start a request:** *Requests* (or the start page) lists the workflows you may
+  start. The form shows a section when its box is ticked and adds rows with
+  "+ Add another …"; secret fields have a *Show* button. Your account needs an
+  email address: requests run under it.
+- **Email links** (`wftool/links.py`): every task gets a personal link
+  `…/t/<code>` (256-bit code; only its SHA-256 hash is stored), valid 14 days by
+  default. Opening it shows the request and the buttons and logs "link
+  fetched"; only pressing a button decides. Then email, time, IP address and
+  browser are recorded and the link is used up. A used, expired, replaced or
+  closed link explains why and whom to contact. People with an account whose
+  email is the task's can also open the task from their start page.
+- **Task pages** for every step type: fill, approve or reject (reason
+  required), fill and approve, approve per item, sign (signature pad for
+  mouse, finger or pen; or "sign on paper"), confirm. German by default with a
+  DE/EN switch. The signer sees the secret values; approvers see them masked.
+- **Request page:** steps as a timeline with person, decision, time and IP,
+  the data (secrets masked; *Show secret values* is logged), the history, and
+  the actions: send the link again, sign on paper instead, print the page for
+  signing, upload the scan (PDF/JPG/PNG up to 20 MB; the starter types the
+  request number printed on the page), cancel with reason, change and send
+  again after a rejection, reassign (admin), download the PDF.
+- **Emails** (`wftool/mailer.py`, `wftool/emails.py`): HTML with a plain-text
+  copy, a button for the link and the request's details (secrets masked).
+  Approvers and signers get German; the starter gets their account language;
+  Notify steps use the default email language. Notify "with PDF" attaches a
+  simple PDF of the request (`wftool/pdf.py`; phase 5 extends it).
+- **Outbox** (`wftool/outbox.py`): emails are queued in the same transaction as
+  the change and sent every 30 seconds by the background task, retried for
+  about a day (1, 5, 15, 60 minutes …). Admin → *Outbox* shows them, can send
+  now or retry. PDFs waiting to be sent are stored encrypted and deleted once sent.
+- **Timers** (`wftool/timers.py`, every 5 minutes): one reminder after 5 working
+  days with a new link (a paper signature reminds the starter instead); the
+  starter is told after 10 working days; an expired link runs the step's
+  *On no response* (wait: tell starter and admin; or reject). Working days
+  follow Saxony's holidays plus the extra days in Settings.
+- **Admin → Open tasks:** all open tasks; tasks of people no longer active in
+  AD are marked and can be reassigned. The start page warns about them and
+  about emails that could not be sent.
+- **Stored files** (`wftool/files.py`): signature images and scans are
+  encrypted with the key file, in `data/files/`.
+
+Screenshots: [docs/screenshots/](docs/screenshots/).
 
 ## Phase 3: form designer and workflow builder
 

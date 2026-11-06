@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}{{ t('Outbox') }}{% endblock %}
+{% block content %}
+<h1>{{ t('Outbox') }}</h1>
+<p class="lead">{{ t('Emails are sent every 30 seconds by the background task. Failed attempts are retried for about a day.') }}</p>
+<div class="row-form">
+  {% for s in ['pending', 'sent', 'failed'] %}<a class="stamp{% if s == 'failed' and counts.get('failed') %} stamp-red{% elif s != 'sent' %} stamp-muted{% endif %}" href="{{ url_for('admin_outbox', status=s) }}">{{ t(s) }}: {{ counts.get(s, 0) }}</a>{% endfor %}
+  {% if status %}<a href="{{ url_for('admin_outbox') }}">{{ t('Show all') }}</a>{% endif %}
+  <form method="post" class="inline"><input type="hidden" name="_csrf" value="{{ csrf_token() }}"><button name="action" value="send">{{ t('Send due emails now') }}</button></form>
+</div>
+{% if rows %}
+<table class="data">
+  <thead><tr><th>{{ t('Time') }}</th><th>{{ t('To') }}</th><th>{{ t('Subject') }}</th><th>{{ t('Status') }}</th><th></th></tr></thead>
+  <tbody>{% for r in rows %}
+    <tr {% if r.status == 'failed' %}class="row-alert"{% endif %}>
+      <td>{{ local_time(r.created_at) }}</td><td>{{ r.to_addr }}</td>
+      <td>{{ r.subject }}{% if r.request_id %} <a class="hint" href="{{ url_for('request_detail', request_id=r.request_id) }}">{{ t('Request') }}</a>{% endif %}</td>
+      <td>{{ t(r.status) }}{% if r.attempts %} <span class="hint">{{ r.attempts }}× {% if r.last_error %}– {{ r.last_error }}{% endif %}</span>{% endif %}{% if r.sent_at %}<span class="hint">{{ local_time(r.sent_at) }}</span>{% endif %}</td>
+      <td>{% if r.status != 'sent' %}<form method="post" class="inline"><input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="id" value="{{ r.id }}"><button name="action" value="retry" class="small">{{ t('Try again') }}</button></form>{% endif %}</td>
+    </tr>
+  {% endfor %}</tbody>
+</table>
+{% else %}<p class="empty">{{ t('No emails yet.') }}</p>{% endif %}
+{% endblock %}

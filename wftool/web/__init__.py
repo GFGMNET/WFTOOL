@@ -1,4 +1,4 @@
-"""Flask web app. Phase 2: login, password rules and the admin pages.
+"""Flask web app: login, admin pages, builder (phase 3), requests and email links (phase 4).
 
 Configuration (environment variables):
   WFTOOL_DATA         data folder (database, files, import folder)   default ./data
@@ -17,6 +17,9 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from .. import accounts
 from ..crypto import Cipher
 from ..db import Database
+from ..engine import Engine
+from ..files import FileStore
+from ..mailer import OutboxNotifier
 
 
 def create_app(config=None):
@@ -44,7 +47,10 @@ def create_app(config=None):
     db = Database(data_dir / "wftool.db")
     cipher = Cipher.from_key_file(key_file)
     accounts.ensure_default_admin(db)
-    app.extensions["wftool"] = {"db": db, "cipher": cipher}
+    files = FileStore(data_dir / "files", cipher)
+    notifier = OutboxNotifier(db, files)
+    engine = Engine(db, cipher, notifier, files=files)
+    app.extensions["wftool"] = {"db": db, "cipher": cipher, "files": files, "engine": engine}
 
     from . import views
     views.register(app)

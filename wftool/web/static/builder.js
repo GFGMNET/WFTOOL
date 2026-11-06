@@ -1356,8 +1356,6 @@
   });
 
   document.addEventListener("click", (e) => {
-    const c = e.target.closest("[data-confirm]");
-    if (c && !window.confirm(c.dataset.confirm)) e.preventDefault();
     const link = e.target.closest("[data-tab-link]");
     if (link) { e.preventDefault(); showTab(link.dataset.tabLink); }
     const exp = e.target.closest("[data-export]");
