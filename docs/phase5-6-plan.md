@@ -29,30 +29,14 @@ State: plan, 6 Nov 2026. Phases 1–4 are done. Each phase ends with a push to
   reverse proxy are needed; the app is reached directly, e.g. `http://wftool.company.local:8080`.
   HTTPS can be added later without changes to the app (reverse proxy plus `WFTOOL_SECURE_COOKIE=1`).
 
-**What I need from you:**
-- Phase 5: nothing.
-- Phase 6 (before it starts):
-  1. Operating system of the machine that runs the app (Windows or Linux), see "Why the operating system matters" below.
-  2. The app's address in your network, e.g. `http://wftool.company.local:8080` (DNS name or IP).
-  3. The OU of the users for the PowerShell export script (group names are known). Without it I use an example value.
-  4. Exchange relay: host name and port (usually 25), and whether it uses STARTTLS.
+**What I need from you:** nothing for phases 5 and 6.
 
-### Why the operating system matters
-
-"Local" still means the app runs on one machine in your network; the OS of
-that machine decides how it is installed and started:
-
-- **Linux:** Docker runs natively; the container starts at boot with Docker's
-  restart policy. Folder paths like `/srv/wftool/data`.
-- **Windows Server:** Docker for Linux containers needs WSL2 or Docker Desktop
-  (Docker Desktop needs a paid licence in larger companies), or the app runs
-  without Docker as a Python Windows service. Folder paths like
-  `D:\WFTOOL\data`, start at boot as a service.
-- It decides how the import folder is shared with the PowerShell export script,
-  which itself always runs on a Windows machine with AD access.
-
-The installation guide and the test command are written for the one OS you
-use, so the steps can be followed without translation.
+- The app runs in a container, so the guide is written for Docker and does not depend on the host OS.
+- The values of your environment are entered by you at go-live, not needed for the build:
+  the app address and the Exchange relay go into Settings; the users' OU is a parameter at the
+  top of the PowerShell export script. The go-live table below lists them.
+- Your master data goes into the CSV files described in `examples/csv/README.md`
+  (`users.csv`, `groups.csv`, `software.csv`); hardware models and vendors are entered under Lists.
 
 ---
 
