@@ -172,8 +172,10 @@ def test_reassign_and_cancel(engine, notifier):
 
 # ------------------------------------------------------- IT Assets Checklist
 
-IT_START = {"user": "emp@co.de", "pc_model": "Latitude 5450", "pc_vendor": "Dell", "pc_serial": "ABC123",
-            "imei": "356938035643809", "pin": "Zx9!pin", "puk": "88776655", "unlock_pin": "0000"}
+IT_START = {"user": "emp@co.de", "laptop_issued": "on", "laptop_model": "Latitude 5450", "laptop_vendor": "Dell",
+            "laptop_serial": "ABC123", "smartphone_issued": "on", "smartphone_model": "iPhone 15",
+            "smartphone_vendor": "Apple", "imei": "356938035643809", "pin": "Zx9!pin", "puk": "88776655",
+            "unlock_pin": "0000"}
 
 
 def test_it_assets_sign_on_screen(engine, notifier):

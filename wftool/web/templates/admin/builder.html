@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}{{ label_of(w.draft.label) if w.draft and w.draft.label else w.name }} · {{ t('Builder') }}{% endblock %}
+{% block main_class %}wide{% endblock %}
+{% block head %}<script src="{{ url_for('static', filename='builder.js') }}" defer></script>{% endblock %}
+{% block content %}
+<p class="crumbs"><a href="{{ url_for('admin_workflows') }}">{{ t('Workflows') }}</a></p>
+<form method="post" id="builder-form" class="builder-head">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <input type="hidden" name="base" value="{{ w.updated_at }}">
+  <input type="hidden" name="tab" value="" id="builder-tab">
+  <div class="builder-title">
+    <h1 id="builder-heading">{{ label_of(w.draft.label) if w.draft and w.draft.label else w.name }}</h1>
+    <p class="builder-status" aria-live="polite">
+      {% if versions %}<span class="stamp">{{ t('Published') }} v{{ versions[0].version }}</span>{% else %}<span class="stamp stamp-muted">{{ t('Not published') }}</span>{% endif %}
+      {% if changed and versions %}<span class="stamp stamp-muted">{{ t('Unpublished changes') }}</span>{% endif %}
+      <span id="unsaved" class="stamp stamp-amber" hidden>{{ t('Not saved') }}</span>
+      <a href="#check" id="check-stamp" class="stamp {{ '' if ready else 'stamp-red' }}" data-tab-link="check">{% if ready %}{{ t('Ready to publish') }}{% else %}{{ problem_count }} {{ t('problem(s)') }}{% endif %}</a>
+    </p>
+  </div>
+  <div class="toolbar">
+    <button name="action" value="save" class="primary">{{ t('Save draft') }}</button>
+    <button name="action" value="publish" data-publish>{{ t('Publish') }}</button>
+    <a class="button-like" href="{{ url_for('admin_workflow_export', workflow_id=w.id) }}" data-export>{{ t('Export') }}</a>
+    <a class="button-like" href="{{ url_for('admin_start_groups') }}#wf-{{ w.id }}">{{ t('Who may start') }}</a>
+  </div>
+  <details class="json-box" id="json-box">
+    <summary>{{ t('Advanced: the workflow as JSON') }}</summary>
+    <p class="hint">{{ t('This is what Save stores. You can edit it here; the designer follows when you leave the box.') }}</p>
+    <textarea name="definition" id="definition" rows="16" spellcheck="false" aria-label="JSON">{{ definition_text }}</textarea>
+  </details>
+</form>
+
+<noscript><p class="flash flash-error">{{ t('The designer needs JavaScript. Without it you can still edit the JSON above and save.') }}</p></noscript>
+<div id="builder" class="builder" data-workflow="{{ w.id }}"></div>
+<script type="application/json" id="builder-data">{{ data_json|safe }}</script>
+
+{% if versions %}
+<details class="versions">
+  <summary>{{ t('Published versions') }} ({{ versions|length }})</summary>
+  <table class="data">
+    <thead><tr><th>{{ t('Version') }}</th><th>{{ t('Published') }}</th><th>{{ t('By') }}</th><th>{{ t('Fingerprint') }}</th></tr></thead>
+    <tbody>{% for v in versions %}<tr><td>v{{ v.version }}</td><td>{{ v.published_at }}</td><td>{{ v.published_by }}</td><td><code>{{ v.fingerprint[:12] }}</code></td></tr>{% endfor %}</tbody>
+  </table>
+  {% if changed %}
+  <form method="post" class="row-form narrow-row">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="action" value="discard">
+    <button data-confirm="{{ t('Discard all changes since the last published version?') }}">{{ t('Discard unpublished changes') }}</button>
+  </form>
+  {% endif %}
+</details>
+{% endif %}
+{% endblock %}

@@ -7,7 +7,7 @@
 <table class="data">
   <thead><tr><th>{{ t('Workflow') }}</th><th>{{ t('Groups') }}</th></tr></thead>
   <tbody>{% for r in rows %}
-    <tr><td><strong>{{ r.name }}</strong></td>
+    <tr id="wf-{{ r.id }}"><td><strong>{{ r.name }}</strong><br><a class="hint" href="{{ url_for('admin_workflow', workflow_id=r.id) }}">{{ t('Open in the builder') }}</a></td>
       <td><form method="post" class="row-form">
         <input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="workflow" value="{{ r.name }}">
         {% for grp in all_groups %}<label class="check"><input type="checkbox" name="groups" value="{{ grp }}" {% if grp in r.groups %}checked{% endif %}> {{ grp }}</label>{% endfor %}
@@ -16,5 +16,5 @@
       </form></td></tr>
   {% endfor %}</tbody>
 </table>
-{% else %}<p class="empty">{{ t('No workflow published yet. Workflows are built in the builder (next phase).') }}</p>{% endif %}
+{% else %}<p class="empty">{{ t('No workflow published yet. Workflows are built and published in the builder.') }} <a href="{{ url_for('admin_workflows') }}">{{ t('Workflows') }}</a></p>{% endif %}
 {% endblock %}

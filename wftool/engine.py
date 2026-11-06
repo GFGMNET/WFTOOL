@@ -17,7 +17,7 @@ from datetime import date
 from . import audit, clock, masterdata
 from .crypto import canonical_json, fingerprint
 from .definitions import (
-    APPROVAL_STEP_TYPES, FILL_STEP_TYPES, LIST_FIELD_TYPES, fields_by_id,
+    APPROVAL_STEP_TYPES, FILL_STEP_TYPES, LIST_FIELD_TYPES, REPEAT_MAX, fields_by_id,
     start_fields, step_fields, who_list,
 )
 from .errors import NotFound, ResolveError, StateError, ValidationError
@@ -83,7 +83,7 @@ class Engine:
         """Start a request of the latest published version. `actor` is the starter."""
         version = latest_version(self.db, workflow_name)
         definition = version["definition"]
-        clean = self._clean_values(start_fields(definition), values, require=True)
+        clean, _ = self._clean_values(definition, start_fields(definition), values, require=True)
         now = clock.now_iso()
         with self.db.tx() as c:
             number = self._next_number(c)
@@ -270,9 +270,12 @@ class Engine:
 
             if task["type"] in FILL_STEP_TYPES and decision != "rejected":
                 fields = step_fields(req["definition"], task["step_index"])
-                clean = self._clean_values(fields, values or {}, require=True)
                 form, _, _ = self._current_form(req["id"])
+                clean, hidden = self._clean_values(req["definition"], fields, values or {}, require=True,
+                                                   context=form)
                 form.update(clean)
+                for key in hidden:
+                    form.pop(key, None)
                 self._save_form(req["id"], form, actor)
 
             _, form_version, form_fp = self._current_form(req["id"])
@@ -451,9 +454,12 @@ class Engine:
                 raise StateError(f"Request {req['number']} is {req['status']}, not returned.")
             if actor.email != req["starter_email"].lower():
                 raise StateError("Only the person who started the request can resend it.")
-            clean = self._clean_values(start_fields(req["definition"]), values, require=True)
             form, _, _ = self._current_form(request_id)
+            clean, hidden = self._clean_values(req["definition"], start_fields(req["definition"]), values,
+                                               require=True, context=form)
             form.update(clean)
+            for key in hidden:
+                form.pop(key, None)
             self.db.execute("UPDATE requests SET status = 'open', round = round + 1, updated_at = ? WHERE id = ?",
                             (clock.now_iso(), request_id))
             self._event("request.resubmitted", request_id, actor, {"round": req["round"] + 1})
@@ -526,36 +532,91 @@ class Engine:
         return self._decrypt(json.loads(row["data_json"])), row["version"], row["fingerprint"]
 
     def _encrypt(self, rid, data):
-        req = self._request(rid)
-        secrets = {f["id"] for f in req["definition"]["fields"] if f["type"] == "secret"}
-        return {k: ({_SECRET: self.cipher.encrypt_text(v)} if k in secrets and v not in (None, "") else v)
-                for k, v in data.items()}
+        """Secret values, also those inside the rows of a repeatable section, become {"$enc": token}."""
+        definition = self._request(rid)["definition"]
+        secrets = {f["id"] for f in definition["fields"] if f["type"] == "secret"}
+
+        def enc(values):
+            out = {}
+            for k, v in values.items():
+                if k in secrets and v not in (None, ""):
+                    out[k] = {_SECRET: self.cipher.encrypt_text(v)}
+                elif isinstance(v, list) and v and all(isinstance(row, dict) for row in v):
+                    out[k] = [enc(row) for row in v]
+                else:
+                    out[k] = v
+            return out
+
+        return enc(data)
 
     def _decrypt(self, data):
-        return {k: (self.cipher.decrypt_text(v[_SECRET]) if isinstance(v, dict) and _SECRET in v else v)
-                for k, v in data.items()}
+        def dec(v):
+            if isinstance(v, dict) and _SECRET in v:
+                return self.cipher.decrypt_text(v[_SECRET])
+            if isinstance(v, list) and v and all(isinstance(row, dict) for row in v):
+                return [{k: dec(x) for k, x in row.items()} for row in v]
+            return v
+        return {k: dec(v) for k, v in data.items()}
 
-    def _clean_values(self, fields, values, *, require):
-        """Check and normalise values for `fields`; raises ValidationError listing every problem."""
+    def _clean_values(self, definition, fields, values, *, require, context=None):
+        """Check and normalise values for `fields`; raises ValidationError listing every problem.
+
+        Returns (clean, hidden): the values to store, and the keys of fields in hidden
+        sections, which are not stored (and are removed if an earlier version had them).
+        A section's condition is evaluated on `context` (the form so far) plus the clean values.
+        """
         values = values or {}
-        clean, problems = {}, []
+        clean, hidden, problems = {}, [], []
+        sections = [f for f in fields if f["type"] == "section"]
         for f in fields:
-            if f["type"] in ("heading", "signature"):
+            if f["type"] in ("heading", "signature", "section") or f.get("section"):
                 continue
-            fid = f["id"]
-            raw = values.get(fid, f.get("default"))
-            try:
-                value = self._clean_one(f, raw)
-            except ValueError as exc:
-                problems.append(f"{fid}: {exc}")
+            self._clean_into(f, values.get(f["id"], f.get("default")), require, clean, problems, f["id"])
+
+        known = dict(context or {})
+        known.update(clean)
+        for sec in sections:
+            sid = sec["id"]
+            members = [f for f in fields if f.get("section") == sid and f["type"] not in ("heading", "signature")]
+            if not members:
                 continue
-            if require and f.get("required") and _empty(value, f["type"]):
-                problems.append(f"{fid}: required")
+            if sec.get("show_when") and not self._condition(sec["show_when"], known, definition):
+                hidden.extend([sid] + [m["id"] for m in members])
                 continue
-            clean[fid] = value
+            if not sec.get("repeat"):
+                for f in members:
+                    self._clean_into(f, values.get(f["id"], f.get("default")), require, clean, problems, f["id"])
+                continue
+            rows = []
+            for n, raw_row in enumerate(_rows(values.get(sid)), start=1):
+                if all(_blank(raw_row.get(f["id"])) for f in members):
+                    continue  # an empty row the person added and left empty
+                row = {}
+                for f in members:
+                    self._clean_into(f, raw_row.get(f["id"], f.get("default")), require, row, problems,
+                                     f"{sid}[{n}].{f['id']}")
+                rows.append(row)
+            low = int(sec["repeat"].get("min") or 0)
+            high = int(sec["repeat"].get("max") or REPEAT_MAX)
+            if require and len(rows) < low:
+                problems.append(f"{sid}: at least {low}")
+            if len(rows) > high:
+                problems.append(f"{sid}: at most {high}")
+            clean[sid] = rows
         if problems:
             raise ValidationError("Please correct the form.", details=problems)
-        return clean
+        return clean, hidden
+
+    def _clean_into(self, f, raw, require, out, problems, where):
+        try:
+            value = self._clean_one(f, raw)
+        except ValueError as exc:
+            problems.append(f"{where}: {exc}")
+            return
+        if require and f.get("required") and _empty(value, f["type"]):
+            problems.append(f"{where}: required")
+            return
+        out[f["id"]] = value
 
     def _clean_one(self, f, raw):
         t = f["type"]
@@ -674,6 +735,19 @@ def _as_list(value):
     if isinstance(value, (list, tuple)):
         return [str(v) for v in value]
     return [str(value)]
+
+
+def _rows(value):
+    """Rows of a repeatable section: a list of dicts, or a dict keyed by row number (web forms)."""
+    if isinstance(value, dict):
+        value = [value[k] for k in sorted(value, key=lambda k: int(k) if str(k).isdigit() else 0)]
+    if not isinstance(value, list):
+        return []
+    return [row for row in value if isinstance(row, dict)]
+
+
+def _blank(raw):
+    return raw is None or raw is False or raw == [] or (isinstance(raw, str) and not raw.strip())
 
 
 def _empty(value, ftype):

@@ -13,7 +13,7 @@ Do not start phase 4 (request pages, email links, outbox).
 | --- | --- |
 | 1. Engine (`wftool/engine.py`, `definitions.py`, `workflows.py`, `audit.py`) | done |
 | 2. Master data, accounts, settings, admin pages (`imports.py`, `accounts.py`, `settings.py`, `applists.py`, `wftool/web/`) | done |
-| **3. Builder** | **this brief** |
+| **3. Builder** | **done (6 Nov 2026), waiting for review** |
 | 4. Request pages and email links, outbox, reminders, expiry, paper-scan upload | later |
 | 5. Audit page, daily anchor email, PDF and CSV reports | later |
 | 6. Docker setup, production server, end-to-end tests | later |

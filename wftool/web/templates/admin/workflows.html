@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}{{ t('Workflows') }}{% endblock %}
+{% block content %}
+<h1>{{ t('Workflows') }}</h1>
+<p class="lead">{{ t('A workflow is a form plus an ordered list of steps. Changes are saved as a draft; Publish makes a new version, and running requests keep the version they started with.') }}</p>
+
+{% if rows %}
+<table class="data">
+  <thead><tr><th>{{ t('Workflow') }}</th><th>{{ t('Version') }}</th><th>{{ t('Who may start') }}</th><th></th></tr></thead>
+  <tbody>{% for w in rows %}
+    <tr>
+      <td><a href="{{ url_for('admin_workflow', workflow_id=w.id) }}"><strong>{{ label_of(w.label) or w.name }}</strong></a>
+        {% if label_of(w.label) and label_of(w.label) != w.name %}<span class="hint">{{ w.name }}</span>{% endif %}</td>
+      <td>{% if w.version %}<span class="stamp">v{{ w.version }}</span>{% else %}<span class="stamp stamp-muted">{{ t('Not published') }}</span>{% endif %}
+        {% if w.changed and w.version %} <span class="stamp stamp-muted">{{ t('Unpublished changes') }}</span>{% endif %}</td>
+      <td>{% if w.start_groups %}{{ w.start_groups|join(', ') }}{% elif w.version %}<a href="{{ url_for('admin_start_groups') }}#wf-{{ w.id }}">{{ t('no group') }}</a>{% else %}<span class="hint">–</span>{% endif %}</td>
+      <td class="actions"><a href="{{ url_for('admin_workflow', workflow_id=w.id) }}">{{ t('Edit') }}</a> · <a href="{{ url_for('admin_workflow_export', workflow_id=w.id) }}">{{ t('Export') }}</a></td>
+    </tr>
+  {% endfor %}</tbody>
+</table>
+{% else %}<p class="empty">{{ t('No workflows yet. Create one below, or import a workflow file.') }}</p>{% endif %}
+
+<div class="grid2 split">
+  <section>
+    <h2>{{ t('New workflow') }}</h2>
+    <form method="post" class="form">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <label>{{ t('Internal name') }}<input name="name" required maxlength="80" placeholder="IT Assets Checklist">
+        <span class="hint">{{ t('Unique; used in exports and reports.') }}</span></label>
+      <label>{{ t('Title (German)') }}<input name="label_de" maxlength="120" placeholder="IT-Ausstattung"></label>
+      <label>{{ t('Title (English)') }}<input name="label_en" maxlength="120" placeholder="IT Assets Checklist"></label>
+      <button class="primary">{{ t('Create workflow') }}</button>
+    </form>
+  </section>
+  <section>
+    <h2>{{ t('Import a workflow file') }}</h2>
+    <form method="post" action="{{ url_for('admin_workflow_import') }}" enctype="multipart/form-data" class="form">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <label>{{ t('Workflow file (.json)') }}<input type="file" name="file" accept=".json,application/json" required>
+        <span class="hint">{{ t('A file made with Export, for example on the test system. A workflow with the same name gets the file as its new draft; nothing is published until you press Publish.') }}</span></label>
+      <button>{{ t('Import workflow') }}</button>
+    </form>
+  </section>
+</div>
+{% endblock %}

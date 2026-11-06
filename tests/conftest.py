@@ -3,11 +3,12 @@ from pathlib import Path
 
 import pytest
 
-from wftool import masterdata, workflows
+from wftool import clock, masterdata, workflows
 from wftool.crypto import Cipher
 from wftool.db import Database
 from wftool.engine import Actor, Engine
 from wftool.notify import RecordingNotifier
+from wftool.web import create_app
 
 EXAMPLES = Path(__file__).resolve().parent.parent / "examples" / "workflows"
 PNG = b"\x89PNG\r\n\x1a\nfake-signature-image"
@@ -15,6 +16,15 @@ PNG = b"\x89PNG\r\n\x1a\nfake-signature-image"
 
 def load_example(name):
     return json.loads((EXAMPLES / name).read_text(encoding="utf-8"))
+
+
+HARDWARE_LISTS = [
+    ("laptop_models", "Laptop models", ["Latitude 5450", "ThinkPad T14"]),
+    ("docking_models", "Docking station models", ["WD19S", "ThinkPad USB-C Dock"]),
+    ("monitor_models", "Monitor models", ["P2423", "U2724D"]),
+    ("smartphone_models", "Smartphone models", ["iPhone 15", "Galaxy A55"]),
+    ("hardware_vendors", "Hardware vendors", ["Dell", "Lenovo", "Apple", "Samsung"]),
+]
 
 
 def seed(db):
@@ -34,10 +44,10 @@ def seed(db):
     masterdata.upsert_list_item(db, "software", "ERP")
     masterdata.upsert_list_item(db, "software", "AutoCAD", needs_approval=True, approver_email="cad@co.de")
     masterdata.upsert_list_item(db, "software", "Visio", needs_approval=True, approver_email="vis@co.de")
-    masterdata.ensure_list(db, "hardware_models", "Hardware models")
-    masterdata.upsert_list_item(db, "hardware_models", "Latitude 5450")
-    masterdata.ensure_list(db, "hardware_vendors", "Hardware vendors")
-    masterdata.upsert_list_item(db, "hardware_vendors", "Dell")
+    for name, label, entries in HARDWARE_LISTS:
+        masterdata.ensure_list(db, name, label)
+        for entry in entries:
+            masterdata.upsert_list_item(db, name, entry)
     masterdata.set_setting(db, "admin_email", "admin@co.de")
     masterdata.set_setting(db, "company_domains", "co.de")
 
@@ -74,3 +84,16 @@ def actor(email, ip="10.0.0.5", ua="pytest-browser"):
 
 def open_tasks(req, step=None):
     return [t for t in req["tasks"] if t["status"] == "open" and (step is None or t["step_id"] == step)]
+
+
+@pytest.fixture
+def app(tmp_path):
+    app = create_app({"DATA_DIR": tmp_path / "data", "KEY_FILE": tmp_path / "keys" / "wftool.key", "TESTING": True})
+    yield app
+    clock.set_now(None)
+    app.extensions["wftool"]["db"].close()
+
+
+@pytest.fixture
+def client(app):
+    return app.test_client()

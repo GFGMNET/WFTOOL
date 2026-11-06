@@ -3,27 +3,12 @@ import shutil
 from datetime import timedelta
 from pathlib import Path
 
-import pytest
 
 from wftool import clock
-from wftool.web import create_app
 
 from fake_smtp import FakeSMTP
 
 EXAMPLES = Path(__file__).resolve().parent.parent / "examples" / "csv"
-
-
-@pytest.fixture
-def app(tmp_path):
-    app = create_app({"DATA_DIR": tmp_path / "data", "KEY_FILE": tmp_path / "keys" / "wftool.key", "TESTING": True})
-    yield app
-    clock.set_now(None)
-    app.extensions["wftool"]["db"].close()
-
-
-@pytest.fixture
-def client(app):
-    return app.test_client()
 
 
 def csrf(client, path):

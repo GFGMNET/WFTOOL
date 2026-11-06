@@ -42,7 +42,8 @@ def register(app):
     def _forbidden(_):
         return render_template("error.html", message=t("You don't have access to this page.")), 403
 
-    for rule, view, methods in ROUTES:
+    from . import builder
+    for rule, view, methods in ROUTES + builder.ROUTES:
         app.add_url_rule(rule, view.__name__, view, methods=methods)
 
 
@@ -362,6 +363,7 @@ def admin_start_groups():
     db = _db()
     names = [r["name"] for r in db.all(
         "SELECT DISTINCT w.name FROM workflows w JOIN workflow_versions v ON v.workflow_id = w.id ORDER BY w.name")]
+    ids = {r["name"]: r["id"] for r in db.all("SELECT id, name FROM workflows")}
     if request.method == "POST":
         name = request.form.get("workflow", "")
         if name in names:
@@ -372,7 +374,7 @@ def admin_start_groups():
                 _flash_error(exc)
         return redirect(url_for("admin_start_groups"))
     all_groups = [r["name"] for r in db.all("SELECT name FROM groups WHERE active = 1 ORDER BY name")]
-    rows = [{"name": n, "groups": workflows.start_groups(db, n)} for n in names]
+    rows = [{"name": n, "id": ids[n], "groups": workflows.start_groups(db, n)} for n in names]
     return render_template("admin/start_groups.html", rows=rows, all_groups=all_groups)
 
 

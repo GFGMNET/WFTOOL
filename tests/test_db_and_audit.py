@@ -31,7 +31,9 @@ def test_failed_transaction_rolls_back(db):
 
 
 def _run_flow(engine):
-    req = engine.start("IT Assets Checklist", actor("it1@co.de"), {"user": "emp@co.de", "pin": "Zx9!pin"})
+    req = engine.start("IT Assets Checklist", actor("it1@co.de"), {
+        "user": "emp@co.de", "smartphone_issued": True, "smartphone_model": "iPhone 15",
+        "smartphone_vendor": "Apple", "imei": "356938035643809", "pin": "Zx9!pin"})
     task = req["tasks"][0]
     engine.decide(task["id"], "signed", actor("emp@co.de"), signature_image=PNG)
     return req

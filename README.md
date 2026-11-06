@@ -12,9 +12,7 @@ Licence: MIT. Design: see the design document v2 (Workflow Builder).
 | --- | --- | --- |
 | 1. Engine | Database, workflow definitions and versions, requests, steps, decisions, audit chain | **done** |
 | 2. Master data and admin | CSV import (AD users, groups, software), lists, settings, accounts | **done** |
-
-Next: phase 3, see [docs/phase3-brief.md](docs/phase3-brief.md).
-| 3. Builder | Form designer, workflow builder, publish checks in the browser | planned |
+| 3. Builder | Form designer with sections, workflow builder, publish checks, export/import | **done, waiting for review** |
 | 4. Requests and email links | Pages, single-use links, outbox, reminders, signature upload | planned |
 | 5. Audit and reports | Tamper check page, daily anchor email, PDF and CSV reports | planned |
 | 6. Examples and setup | Docker setup, end-to-end tests | planned |
@@ -77,6 +75,75 @@ approval and sign steps can use `reject`; paper signatures never expire.
 `contains`, `not_contains`, `is_set`, `is_empty`, `any_needs_approval`.
 A step whose condition is false is skipped and logged.
 
+## Phase 3: form designer and workflow builder
+
+Admin → **Workflows**. A workflow is created empty (or imported from a file),
+built in the browser and published. Brief: [docs/phase3-brief.md](docs/phase3-brief.md).
+
+- **Form designer** (tab *Form*): add fields from the palette; drag them by the
+  ⠿ handle or move them with the ↑/↓ buttons (keyboard users; ↑/↓ also moves a
+  field into or out of a section). A card opens to edit label DE/EN, id, help
+  text, required, default, list or fixed options, min/max, max length and
+  *Filled by* (at the start, or a Fill / Fill-and-approve / Sign step). Ids
+  follow the label until edited; renaming an id updates every reference
+  (steps, conditions, sections, email placeholders).
+- **Live preview** beside the list (below it on phones): the form as the user
+  will see it, per stage (start or a later fill step) and in DE or EN. Ticking a
+  box shows its section; repeatable sections add and remove rows.
+- **Workflow builder** (tab *Steps*): ordered steps, each with type, who
+  (fixed person, AD group for Notify/Confirm only, person/email field, the
+  starter, manager of, item approver), condition, on reject, on no response
+  (approval and sign steps), paper signature (sign), PDF attachment (notify)
+  and email subject and text DE/EN. Empty email texts use the defaults per step
+  type (`wftool/emails.py`); placeholders: `{request_no}`, `{workflow}`,
+  `{step}`, `{starter}`, `{link}` and any field id such as `{employee}`.
+  Secret fields and fields in repeatable sections can't be placeholders.
+- **Check and publish:** the page checks the draft on the server as you edit
+  (nothing is saved) and shows each problem in plain language on the field or
+  step it concerns; the *Check* tab lists them all. *Save draft* stores the
+  draft; *Publish* saves and publishes a new version if there are no problems.
+  Running requests keep their version. If another admin saved in between, the
+  save is refused instead of overwriting. *Discard unpublished changes* goes
+  back to the last version.
+- **Export / import:** *Export* downloads the draft as JSON; *Import workflow*
+  (on the Workflows page) loads such a file as the draft of the workflow with
+  the same name (or a new one). Nothing is published by an import.
+- **Advanced:** the draft as JSON can be edited directly on the builder page;
+  this also works without JavaScript.
+- Every save, rename, import, discard and publish is an audit event.
+  The designer is `wftool/web/static/builder.js` (no libraries, no build step,
+  CSP `default-src 'self'`).
+
+Screenshots (desktop and phone): [docs/screenshots/](docs/screenshots/).
+
+### Sections
+
+```json
+{"id": "laptop_issued", "type": "checkbox", "label": {"de": "Laptop ausgegeben", "en": "Laptop issued"}},
+{"id": "laptop", "type": "section", "label": "Laptop",
+ "show_when": {"field": "laptop_issued", "op": "equals", "value": true}},
+{"id": "laptop_model", "type": "dropdown", "section": "laptop", "list": "laptop_models", "label": "Modell", "required": true},
+{"id": "monitors", "type": "section", "label": "Monitor",
+ "show_when": {"field": "monitor_issued", "op": "equals", "value": true},
+ "repeat": {"min": 1, "max": 6, "add_label": {"de": "Weiteren Monitor hinzufügen", "en": "Add another monitor"}}}
+```
+
+- A field belongs to a section by its `section` key; no sections inside
+  sections, no signature in a section. All fields of a section are filled by
+  the same step, and the section belongs to that step.
+- `show_when` uses a field outside sections that is filled at or before the
+  section's step. A hidden section's fields are not required and not stored;
+  a version saved later without them drops them (earlier versions keep them).
+- A normal section's values are stored flat (`laptop_model`). A repeatable
+  section is a list of rows under its id
+  (`"monitors": [{"monitor_model": "P2423", "monitor_serial": "M1"}]`), with
+  min/max count; rows left completely empty are ignored. Secret fields inside
+  rows are encrypted like any other secret.
+- Fields in repeatable sections cannot be used by steps (recipient, condition,
+  approve per item) or as email placeholders.
+- Every problem is a `definitions.Problem`: a string that also knows the field
+  or step it concerns (`kind`, `index`, `ref`) and a translatable template.
+
 ## Phase 2: master data and admin
 
 - **Start:** `python -m wftool run` (app on port 8080 plus the background
@@ -104,7 +171,14 @@ A step whose condition is false is skipped and logged.
 ## Examples
 
 `examples/workflows/` holds HR Onboard and IT Assets Checklist as definition
-files; the tests import, publish and run both.
+files; the tests import, publish and run both. They can be imported in the
+app with *Import workflow*.
+
+The IT Assets Checklist has the sections Laptop, Docking station, Monitor
+(repeatable, 1–6) and Smartphone (IMEI, PIN, PUK and unlock PIN; the last three
+are secret), each switched on by its own checkbox. It needs these lists under
+Admin → Lists: `laptop_models`, `docking_models`, `monitor_models`,
+`smartphone_models` and `hardware_vendors`.
 
 ## Development
 

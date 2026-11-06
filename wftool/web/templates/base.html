@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{% endblock %} · WFTOOL</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  {% block head %}{% endblock %}
 </head>
 <body>
 <header class="topbar">
@@ -30,13 +31,13 @@
     <a href="{{ url_for('home') }}" {% if request.endpoint == 'home' %}aria-current="page"{% endif %}>{{ t('Home') }}</a>
     {% if g.user.role == 'admin' %}
       <p class="sidenav-group">{{ t('Administration') }}</p>
-      {% for ep, label in [('admin_start_groups', 'Who may start'), ('admin_lists', 'Lists'), ('admin_people', 'People and groups'), ('admin_imports', 'Imports'), ('admin_accounts', 'Accounts'), ('admin_settings', 'Settings')] %}
-        <a href="{{ url_for(ep) }}" {% if request.endpoint and request.endpoint.startswith(ep) %}aria-current="page"{% endif %}>{{ t(label) }}</a>
+      {% for ep, label in [('admin_workflow', 'Workflows'), ('admin_start_groups', 'Who may start'), ('admin_lists', 'Lists'), ('admin_people', 'People and groups'), ('admin_imports', 'Imports'), ('admin_accounts', 'Accounts'), ('admin_settings', 'Settings')] %}
+        <a href="{{ url_for('admin_workflows' if ep == 'admin_workflow' else ep) }}" {% if request.endpoint and request.endpoint.startswith(ep) %}aria-current="page"{% endif %}>{{ t(label) }}</a>
       {% endfor %}
     {% endif %}
   </nav>
   {% endif %}
-  <main>
+  <main class="{% block main_class %}{% endblock %}">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
       <div class="flashes" role="status">
