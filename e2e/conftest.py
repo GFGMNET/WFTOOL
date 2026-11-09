@@ -21,7 +21,8 @@ def browser():
         kwargs = {}
         if os.environ.get("E2E_CHROME"):
             kwargs["executable_path"] = os.environ["E2E_CHROME"]
-        b = p.chromium.launch(args=["--no-sandbox"], **kwargs)
+        # --disable-dev-shm-usage: containers have a small /dev/shm, which crashes Chromium on long pages
+        b = p.chromium.launch(args=["--no-sandbox", "--disable-dev-shm-usage"], **kwargs)
         yield b
         b.close()
 

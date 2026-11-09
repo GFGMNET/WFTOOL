@@ -2,6 +2,9 @@
 
 You need Docker (with Compose). Everything else runs in containers.
 
+The first build downloads from Docker Hub, PyPI and the Debian package servers
+(`deb.debian.org`); later runs use the cached images.
+
 ## 1. Run every test
 
 ```
@@ -37,4 +40,4 @@ Start again from empty: stop, then delete `test-data/data` and `test-data/keys`.
 ## 3. Without Docker (developers)
 
 `python e2e/local.py` with Python 3.11+, `pip install -r requirements.txt -r requirements-test.txt`
-and `playwright install chromium`.
+and Chrome or Chromium (`E2E_CHROME=/path/to/chrome`, or `playwright install chromium`).

@@ -1,3 +1,4 @@
-# Tests (unit tests and the end-to-end suite)
+# Tests (unit tests and the end-to-end suite). The browser is Chromium from the system
+# (Debian package in the test image; locally set E2E_CHROME or run `playwright install chromium`).
 pytest>=8
-playwright==1.49.1
+playwright==1.63.0
