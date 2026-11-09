@@ -26,16 +26,30 @@ Or `scripts/test.sh` (Linux) / `scripts\test.ps1` (Windows), which also cleans u
 docker compose -f docker-compose.test.yml --profile manual up --build -d manual mail
 ```
 
-1. Open http://localhost:8080, sign in as `admin` / `test-admin-password` (red TEST MODE bar).
-2. Settings:
-   - SMTP server `mail`, port `1025`, encryption `none`, sender e.g. `wftool@company.de`
-   - App address `http://localhost:8080`, admin email, company domain (e.g. `company.de`)
-3. Put your CSV files into `test-data/import/` (templates and a short instruction: `templates/csv/`),
-   then *Admin → Imports → Import jetzt ausführen*.
-4. Every email the app sends: http://localhost:8025.
+Open http://localhost:8080 (red TEST MODE bar). Emails: http://localhost:8025.
+
+The setup starts ready to test:
+
+- settings for the test mail server, example people, groups and software (imported from
+  `test-data/import/`), hardware lists, **HR Onboard** and **IT Assets Checklist** published,
+  who may start: HR Onboard → HR, IT Assets → IT.
+
+| Username | Password | Role | Can start |
+| --- | --- | --- | --- |
+| `admin` | `test-admin-password` | admin | everything |
+| `hanna` | `test-user-password` | starter (HR) | HR Onboard |
+| `ina` | `test-user-password` | starter (IT) | IT Assets Checklist |
+| `auditor` | `test-user-password` | auditor | – (search, PDF, audit) |
+
+Approvers and signers (e.g. `max.mueller@company.de`, `eva.engel@company.de`) have no account:
+they act from the email links shown at http://localhost:8025.
+
+**Test the import:** change or replace the CSV files in `test-data/import/` (templates and a short
+instruction: `templates/csv/`), then *Admin → Imports → Import jetzt ausführen*.
 
 Stop: `docker compose -f docker-compose.test.yml --profile manual down`.
-Start again from empty: stop, then delete `test-data/data` and `test-data/keys`.
+**Start again with fresh test data:** stop, delete the folders `test-data/data`, `test-data/keys` and the
+CSV files in `test-data/import/`, start again.
 
 ## 3. Without Docker (developers)
 

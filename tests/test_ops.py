@@ -83,3 +83,50 @@ def test_health_page(client, app):
     first_login(client)
     page = client.get("/admin/health").get_data(as_text=True)
     assert "Letzter Import" in page and "Speicherplatz" in page and re.search(r"\d+\.\d GB", page)
+
+
+def test_manual_test_setup_starts_with_example_data(tmp_path, monkeypatch):
+    monkeypatch.setenv("WFTOOL_TEST_MODE", "1")
+    monkeypatch.setenv("WFTOOL_TEST_SEED", "1")
+    monkeypatch.setenv("WFTOOL_TEST_ADMIN_PASSWORD", "test-admin-password")
+    config = {"DATA_DIR": tmp_path / "d", "KEY_FILE": tmp_path / "k" / "key", "TESTING": True}
+    app = create_app(config)
+    db = app.extensions["wftool"]["db"]
+    try:
+        names = [r["name"] for r in db.all("SELECT w.name FROM workflows w JOIN workflow_versions v"
+                                           " ON v.workflow_id = w.id ORDER BY w.name")]
+        assert names == ["HR Onboard", "IT Assets Checklist"]
+        assert db.one("SELECT COUNT(*) AS n FROM ad_users WHERE active = 1")["n"] >= 8
+        assert {r["name"] for r in db.all("SELECT name FROM groups")} >= {"HR", "IT"}
+        assert db.one("SELECT COUNT(*) AS n FROM list_items WHERE list_name = 'software'")["n"] >= 3
+        assert db.one("SELECT COUNT(*) AS n FROM list_items WHERE list_name = 'monitor_models'")["n"] == 2
+        assert (tmp_path / "d" / "import" / "users.csv").exists()  # visible in the import folder
+        assert db.one("SELECT value FROM settings WHERE key = 'smtp_host'")["value"] == "mail"
+        client = app.test_client()
+        login(client, "hanna", "test-user-password")
+        home = client.get("/").get_data(as_text=True)
+        assert "HR Onboarding" in home and "IT-Ausstattung" not in home  # HR may start HR Onboard only
+        other = app.test_client()
+        login(other, "ina", "test-user-password")
+        assert "IT-Ausstattung" in other.get("/").get_data(as_text=True)
+    finally:
+        db.close()
+    workflows_before = 2
+    app = create_app(config)  # a restart does not load the data again
+    db = app.extensions["wftool"]["db"]
+    try:
+        assert db.one("SELECT COUNT(*) AS n FROM workflow_versions")["n"] == workflows_before
+        assert db.one("SELECT COUNT(*) AS n FROM events WHERE type = 'test.seeded'")["n"] == 1
+    finally:
+        db.close()
+
+
+def test_no_example_data_without_the_switch(tmp_path, monkeypatch):
+    monkeypatch.setenv("WFTOOL_TEST_MODE", "1")
+    monkeypatch.delenv("WFTOOL_TEST_SEED", raising=False)
+    app = create_app({"DATA_DIR": tmp_path / "d", "KEY_FILE": tmp_path / "k" / "key", "TESTING": True})
+    db = app.extensions["wftool"]["db"]
+    try:
+        assert db.one("SELECT COUNT(*) AS n FROM workflows")["n"] == 0
+    finally:
+        db.close()

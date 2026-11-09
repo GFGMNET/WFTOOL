@@ -10,6 +10,7 @@ Configuration (environment variables):
   WFTOOL_TEST_MODE      "1" for the test setup only: red TEST MODE bar, test clock and
                         /test/... helpers for the automated tests. Never in production.
   WFTOOL_TEST_ADMIN_PASSWORD  test mode only: admin password set at start
+  WFTOOL_TEST_SEED      test mode only: "1" loads the example data into an empty database (manual test setup)
 """
 
 import os
@@ -68,6 +69,10 @@ def create_app(config=None):
     if app.config["TEST_MODE"]:
         from . import testmode
         testmode.register(app)
+        if os.environ.get("WFTOOL_TEST_SEED", "0") == "1":
+            from .. import testdata
+            if testdata.needed(db):
+                testdata.seed(db, app.config["IMPORT_DIR"])
     return app
 
 

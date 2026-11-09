@@ -4,7 +4,7 @@
 #   docker compose -f docker-compose.test.yml up --build --renew-anon-volumes --abort-on-container-exit --exit-code-from tests
 # Results: ./test-results/report.html (and junit-*.xml). Emails of the run: http://localhost:8025
 #
-# Test by hand (your own CSV files in ./test-data/import, data kept in ./test-data):
+# Test by hand (starts with the example data and workflows; data kept in ./test-data):
 #   docker compose -f docker-compose.test.yml --profile manual up --build -d manual mail
 #   app: http://localhost:8080 (admin / test-admin-password), emails: http://localhost:8025
 
@@ -51,6 +51,7 @@ services:
     environment:
       WFTOOL_TEST_MODE: "1"
       WFTOOL_TEST_ADMIN_PASSWORD: "test-admin-password"
+      WFTOOL_TEST_SEED: "1"              # starts with the example data and both workflows
     ports:
       - "8080:8080"
     volumes:
